@@ -1,0 +1,10 @@
+{
+  "name": "izone-term-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check shared/app.js && node --check shared/config.js && node --check shared/landing.js && node --check term-test-1/test-config.js && node --check term-test-2/test-config.js",
+    "test": "node --test test/config.test.js"
+  }
+}
