@@ -130,6 +130,7 @@
           </div>
         </div>
         <div class="summary-grid" id="summaryGrid"></div>
+        <div id="questionDetails"></div>
         <div class="analysis-grid">
           <article class="analysis-card best">
             <h3>Dạng làm tốt nhất</h3>
@@ -146,7 +147,6 @@
             <tbody id="performanceBody"></tbody>
           </table>
         </div>
-        <div id="questionDetails"></div>
       </section>
     </main>
   `;
@@ -361,7 +361,7 @@
     table.className = 'detail-table';
     const head = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    for (const label of ['Câu', 'Dạng bài', 'Bài làm', 'Đáp án đúng', 'Kết quả']) {
+    for (const label of ['Câu', 'Bài làm', 'Đáp án đúng', 'Kết quả']) {
       const cell = document.createElement('th');
       cell.textContent = label;
       headerRow.append(cell);
@@ -370,19 +370,32 @@
     const body = document.createElement('tbody');
     for (const detail of details || []) {
       const row = document.createElement('tr');
+      const resultMeta = {
+        correct: { icon: '✓', label: 'Đúng' },
+        incorrect: { icon: '✕', label: 'Sai' },
+        blank: { icon: '–', label: 'Bỏ trống' }
+      }[detail.result] || { icon: '?', label: detail.result || 'Chưa xác định' };
+      row.className = `detail-row detail-row-${detail.result || 'unknown'}`;
       const labels = [
-        `Câu ${detail.number}`,
-        detail.type,
+        `${String(detail.number).padStart(2, '0')}.`,
         detail.studentAnswer || '—',
-        detail.correctAnswer || '—',
-        { correct: 'Đúng', incorrect: 'Sai', blank: 'Bỏ trống' }[detail.result] || detail.result
+        detail.correctAnswer || '—'
       ];
-      labels.forEach((value, index) => {
+      labels.forEach(value => {
         const cell = document.createElement('td');
         cell.textContent = value;
-        if (index === 4) cell.className = `result-${detail.result}`;
         row.append(cell);
       });
+      const resultCell = document.createElement('td');
+      resultCell.className = `detail-result-cell result-${detail.result}`;
+      const resultIcon = document.createElement('span');
+      resultIcon.className = 'detail-result-icon';
+      resultIcon.setAttribute('aria-hidden', 'true');
+      resultIcon.textContent = resultMeta.icon;
+      const resultLabel = document.createElement('span');
+      resultLabel.textContent = resultMeta.label;
+      resultCell.append(resultIcon, resultLabel);
+      row.append(resultCell);
       body.append(row);
     }
     table.append(head, body);
