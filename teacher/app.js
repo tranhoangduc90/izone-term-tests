@@ -464,6 +464,10 @@ elements.teacherTabs.addEventListener('wheel', event => {
 elements.teacherTabsPrev.addEventListener('click', () => scrollTeacherTabs(-1));
 elements.teacherTabsNext.addEventListener('click', () => scrollTeacherTabs(1));
 window.addEventListener('resize', () => refreshTabScrollLayout('auto'));
+if ('ResizeObserver' in window) {
+  const teacherTabsResizeObserver = new ResizeObserver(() => refreshTabScrollLayout('auto'));
+  teacherTabsResizeObserver.observe(elements.teacherTabs);
+}
 
 elements.overviewBody.addEventListener('click', event => {
   const button = event.target.closest('[data-open-student]');
