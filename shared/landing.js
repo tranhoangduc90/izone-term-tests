@@ -14,4 +14,10 @@
       window.location.href = `${button.dataset.test}/?class=${encodeURIComponent(classCode)}`;
     });
   });
+
+  document.getElementById('teacherDashboard')?.addEventListener('click', () => {
+    const classCode = input.value.trim().toUpperCase();
+    const query = /^[A-Z0-9_-]{2,32}$/.test(classCode) ? `?class=${encodeURIComponent(classCode)}` : '';
+    window.location.href = `teacher/${query}`;
+  });
 }());

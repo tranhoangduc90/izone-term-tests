@@ -1,0 +1,53 @@
+.teacher-topbar { display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.teacher-topbar-actions { display: flex; gap: 10px; align-items: center; flex: 0 0 auto; }
+.teacher-login-badge { padding: 9px 12px; color: #d7e5f5; border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px; font-size: 12px; font-weight: 800; }
+.teacher-page-shell { width: min(1180px, calc(100% - 28px)); }
+.teacher-access { display: flex; justify-content: space-between; gap: 28px; align-items: center; padding: 24px; }
+.teacher-access h2, .teacher-section-heading h2 { margin: 5px 0 7px; }
+.teacher-access p:not(.eyebrow) { max-width: 680px; margin: 0; color: var(--muted); line-height: 1.55; }
+.teacher-toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.3fr); gap: 14px; align-items: end; padding: 18px; }
+.teacher-context { display: grid; gap: 6px; padding: 0 4px 5px; }
+.teacher-context span { color: var(--muted); font-size: 12px; font-weight: 800; }
+.teacher-context strong { color: var(--navy); }
+.teacher-tabs { display: flex; gap: 8px; margin: 16px 0; padding: 5px; overflow-x: auto; background: #dfe6ef; border-radius: 13px; scrollbar-width: thin; }
+.teacher-tab { flex: 0 0 auto; min-height: 38px; padding: 8px 13px; color: var(--muted); background: transparent; border: 0; border-radius: 9px; font-weight: 800; white-space: nowrap; }
+.teacher-tab:hover { color: var(--navy); background: rgba(255, 255, 255, .65); }
+.teacher-tab.active { color: #fff; background: var(--navy); box-shadow: 0 5px 12px rgba(23, 59, 103, .2); }
+.teacher-tab-status { display: inline-block; width: 7px; height: 7px; margin-right: 6px; background: #98a2b3; border-radius: 50%; vertical-align: 1px; }
+.teacher-tab-status.completed { background: #39c38f; }
+.teacher-tab-status.incomplete { background: #f3a72b; }
+.teacher-overview { overflow: hidden; }
+.teacher-section-heading { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; padding: 21px 22px 16px; }
+.teacher-result-count { padding: 8px 10px; color: var(--navy); background: #eaf0f7; border-radius: 999px; font-size: 12px; font-weight: 850; }
+.teacher-summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 0 22px 20px; }
+.teacher-summary-card { padding: 14px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 12px; }
+.teacher-summary-card span { display: block; min-height: 30px; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.teacher-summary-card strong { display: block; margin-top: 5px; color: var(--navy); font-size: 23px; }
+.teacher-table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
+.teacher-table { width: 100%; min-width: 820px; border-collapse: collapse; }
+.teacher-table th, .teacher-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; font-size: 13px; }
+.teacher-table th { color: var(--muted); background: var(--surface-soft); font-size: 12px; }
+.teacher-table tbody tr:hover td { background: #f8fafc; }
+.teacher-student-name { color: var(--navy); font-weight: 850; }
+.teacher-band { color: var(--navy); font-size: 16px; font-weight: 850; font-variant-numeric: tabular-nums; }
+.teacher-status { display: inline-flex; align-items: center; padding: 6px 9px; border-radius: 999px; font-size: 11px; font-weight: 850; white-space: nowrap; }
+.teacher-status.completed { color: #0f6448; background: #e6f7ef; }
+.teacher-status.incomplete { color: #875100; background: #fff3d6; }
+.teacher-status.not_started { color: #667085; background: #edf0f4; }
+.teacher-open-button { min-height: 34px; padding: 7px 11px; }
+.teacher-empty { padding: 38px 24px; text-align: center; }
+.teacher-empty h2 { margin: 8px 0; }
+.teacher-empty p { margin: 0; color: var(--muted); }
+.teacher-result-panel { margin: 0; }
+
+@media (max-width: 900px) {
+  .teacher-summary-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 700px) {
+  .teacher-topbar, .teacher-access, .teacher-section-heading { display: grid; }
+  .teacher-topbar-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .teacher-toolbar { grid-template-columns: 1fr; }
+  .teacher-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .teacher-result-count { justify-self: start; }
+}

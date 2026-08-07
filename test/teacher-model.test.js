@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { formatBand, getAverageBand, statusLabel, summarizeStudents } from '../teacher/model.js';
+
+test('tổng quan lớp chỉ tính trung bình từ học viên đã hoàn thành', () => {
+  const students = [
+    {
+      status: 'completed',
+      result: { listening: { band: 6.5 }, reading: { band: 7 }, summary: { averageBand: 6.75 } }
+    },
+    {
+      status: 'completed',
+      result: { listening: { band: 7.5 }, reading: { band: 8 }, summary: { averageBand: 7.75 } }
+    },
+    { status: 'incomplete', result: null },
+    { status: 'not_started', result: null }
+  ];
+  const summary = summarizeStudents(students);
+  assert.equal(summary.total, 4);
+  assert.equal(summary.completed, 2);
+  assert.equal(summary.listeningAverage, 7);
+  assert.equal(summary.readingAverage, 7.5);
+  assert.equal(summary.overallAverage, 7.25);
+});
+
+test('Band trung bình có fallback và trạng thái dùng nhãn tiếng Việt', () => {
+  assert.equal(getAverageBand({ listening: { band: 6 }, reading: { band: 7 } }), 6.5);
+  assert.equal(formatBand(6.5, 2), '6.50');
+  assert.equal(statusLabel('not_started'), 'Chưa nộp');
+});

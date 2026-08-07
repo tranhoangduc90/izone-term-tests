@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check shared/app.js && node --check shared/config.js && node --check shared/landing.js && node --check term-test-1/test-config.js && node --check term-test-2/test-config.js",
-    "test": "node --test test/config.test.js"
+    "check": "node --check shared/app.js && node --check shared/config.js && node --check shared/landing.js && node --check teacher/app.js && node --check teacher/model.js && node --check term-test-1/test-config.js && node --check term-test-2/test-config.js",
+    "test": "node --test test/config.test.js test/teacher-model.test.js"
   }
 }

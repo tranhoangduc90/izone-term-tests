@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Bảng kết quả Term Test dành cho giảng viên">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://ducizone.ddns.net https://accounts.google.com; frame-src https://accounts.google.com; img-src 'self' data: https://*.googleusercontent.com; style-src 'self'; script-src 'self' https://accounts.google.com; base-uri 'none'; form-action 'self'">
+    <title>Kết quả Term Test của lớp</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../shared/styles.css?rev=20260807-teacher-dashboard">
+    <link rel="stylesheet" href="styles.css?rev=20260807-teacher-dashboard">
+  </head>
+  <body>
+    <header class="topbar teacher-topbar">
+      <div>
+        <p class="eyebrow">IZONE · Dành cho giảng viên</p>
+        <h1>Kết quả Term Test của lớp</h1>
+        <p>Xem Band Listening, Reading, điểm trung bình và phân tích chi tiết của từng học viên.</p>
+      </div>
+      <div class="teacher-topbar-actions">
+        <span class="teacher-login-badge" id="loginBadge">Chưa đăng nhập</span>
+        <button class="button button-secondary" id="refreshButton" type="button" hidden>Làm mới dữ liệu</button>
+      </div>
+    </header>
+
+    <main class="page-shell teacher-page-shell">
+      <div class="notice" id="notice" role="status">Đăng nhập Google để xem các lớp bạn được cấp quyền.</div>
+
+      <section class="panel teacher-access" id="accessView">
+        <div>
+          <p class="eyebrow">Quyền truy cập</p>
+          <h2>Đăng nhập tài khoản giảng viên</h2>
+          <p>Chỉ tài khoản đã được quản trị viên cấp quyền cho lớp mới xem được tên và kết quả học viên.</p>
+        </div>
+        <div id="googleSignInButton"></div>
+      </section>
+
+      <section id="dashboardView" hidden>
+        <div class="panel teacher-toolbar">
+          <label>
+            Lớp
+            <select id="classSelect"></select>
+          </label>
+          <label>
+            Bài test
+            <select id="testSelect"></select>
+          </label>
+          <div class="teacher-context">
+            <span>Giảng viên</span>
+            <strong id="reviewerName">—</strong>
+          </div>
+        </div>
+
+        <nav class="teacher-tabs" id="teacherTabs" role="tablist" aria-label="Tổng quan và kết quả từng học viên"></nav>
+
+        <section class="panel teacher-overview" id="overviewView">
+          <div class="teacher-section-heading">
+            <div>
+              <p class="eyebrow">Tổng quan chung</p>
+              <h2 id="overviewTitle">Kết quả của lớp</h2>
+            </div>
+            <span class="teacher-result-count" id="resultCount">0 học viên</span>
+          </div>
+          <div class="teacher-summary-grid" id="classSummary"></div>
+          <div class="teacher-table-wrap">
+            <table class="teacher-table">
+              <thead>
+                <tr>
+                  <th>Học viên</th>
+                  <th>Listening</th>
+                  <th>Reading</th>
+                  <th>Band trung bình</th>
+                  <th>Trạng thái</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="overviewBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="studentView" hidden></section>
+      </section>
+    </main>
+
+    <script src="../shared/config.js?rev=20260807-teacher-dashboard"></script>
+    <script type="module" src="app.js?rev=20260807-teacher-dashboard"></script>
+  </body>
+</html>
