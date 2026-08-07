@@ -23,7 +23,7 @@ const state = {
 
 const elements = Object.fromEntries([
   'notice', 'accessView', 'googleSignInButton', 'dashboardView', 'loginBadge', 'refreshButton',
-  'classSelect', 'testSelect', 'reviewerName', 'teacherTabs', 'overviewView', 'overviewTitle',
+  'classSelect', 'testSelect', 'reviewerName', 'teacherTabs', 'teacherTabsPrev', 'teacherTabsNext', 'overviewView', 'overviewTitle',
   'resultCount', 'classSummary', 'overviewBody', 'studentView'
 ].map(id => [id, document.getElementById(id)]));
 
@@ -149,6 +149,36 @@ function renderTabs() {
     return button;
   });
   elements.teacherTabs.replaceChildren(overviewButton, ...studentButtons);
+  requestAnimationFrame(() => {
+    scrollActiveTabIntoView('auto');
+    updateTabScrollControls();
+  });
+}
+
+function updateTabScrollControls() {
+  const maxScrollLeft = Math.max(0, elements.teacherTabs.scrollWidth - elements.teacherTabs.clientWidth);
+  const hasOverflow = maxScrollLeft > 2;
+  elements.teacherTabsPrev.hidden = !hasOverflow;
+  elements.teacherTabsNext.hidden = !hasOverflow;
+  elements.teacherTabsPrev.disabled = !hasOverflow || elements.teacherTabs.scrollLeft <= 2;
+  elements.teacherTabsNext.disabled = !hasOverflow || elements.teacherTabs.scrollLeft >= maxScrollLeft - 2;
+}
+
+function scrollActiveTabIntoView(behavior = 'smooth') {
+  const activeTab = elements.teacherTabs.querySelector('.teacher-tab.active');
+  if (!activeTab) return;
+  const viewport = elements.teacherTabs.getBoundingClientRect();
+  const tab = activeTab.getBoundingClientRect();
+  if (tab.left < viewport.left) {
+    elements.teacherTabs.scrollBy({ left: tab.left - viewport.left - 8, behavior });
+  } else if (tab.right > viewport.right) {
+    elements.teacherTabs.scrollBy({ left: tab.right - viewport.right + 8, behavior });
+  }
+}
+
+function scrollTeacherTabs(direction) {
+  const distance = Math.max(180, Math.round(elements.teacherTabs.clientWidth * 0.75));
+  elements.teacherTabs.scrollBy({ left: direction * distance, behavior: 'smooth' });
 }
 
 function renderOverviewRows() {
@@ -419,6 +449,16 @@ elements.teacherTabs.addEventListener('click', event => {
   state.selectedTab = button.dataset.tab;
   renderActiveView();
 });
+
+elements.teacherTabs.addEventListener('scroll', updateTabScrollControls, { passive: true });
+elements.teacherTabs.addEventListener('wheel', event => {
+  if (elements.teacherTabs.scrollWidth <= elements.teacherTabs.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+  event.preventDefault();
+  elements.teacherTabs.scrollBy({ left: event.deltaY, behavior: 'auto' });
+}, { passive: false });
+elements.teacherTabsPrev.addEventListener('click', () => scrollTeacherTabs(-1));
+elements.teacherTabsNext.addEventListener('click', () => scrollTeacherTabs(1));
+window.addEventListener('resize', updateTabScrollControls);
 
 elements.overviewBody.addEventListener('click', event => {
   const button = event.target.closest('[data-open-student]');
