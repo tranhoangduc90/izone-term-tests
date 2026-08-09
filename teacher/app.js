@@ -100,7 +100,7 @@ async function loadOptions() {
   state.classes = payload.classes || [];
   state.tests = payload.tests || [];
   if (!state.classes.length) throw new Error('Tài khoản chưa được cấp quyền xem lớp nào.');
-  if (!state.tests.length) throw new Error('Chưa có Term Test nào đang hoạt động.');
+  if (!state.tests.length) throw new Error('Chưa có bài test nào đang hoạt động.');
   fillSelect(elements.classSelect, state.classes, 'id', 'name');
   fillSelect(elements.testSelect, state.tests, 'slug', 'title');
   chooseInitialFilters();
