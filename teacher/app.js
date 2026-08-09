@@ -233,7 +233,12 @@ function renderAnalysisList(container, items, emptyText) {
 
 function renderDetailBlock(title, details) {
   const block = createNode('details', 'detail-block');
-  const summary = createNode('summary', '', `${title} · xem chi tiết 40 câu`);
+  const detailRows = details || [];
+  const summary = createNode(
+    'summary',
+    '',
+    detailRows.length ? `${title} · xem chi tiết ${detailRows.length} câu` : `${title} · chưa có dữ liệu từng câu`
+  );
   const wrap = createNode('div', 'detail-table-wrap');
   const table = createNode('table', 'detail-table');
   const head = document.createElement('thead');
@@ -243,7 +248,7 @@ function renderDetailBlock(title, details) {
   }
   head.append(headerRow);
   const body = document.createElement('tbody');
-  for (const detail of details || []) {
+  for (const detail of detailRows) {
     const row = createNode('tr', `detail-row detail-row-${detail.result || 'unknown'}`);
     const resultMeta = {
       correct: { icon: '✓', label: 'Đúng' },
@@ -295,14 +300,14 @@ function renderStudentResult(student) {
   headingCopy.append(
     createNode('p', 'eyebrow', 'Kết quả cá nhân'),
     createNode('h2', '', student.name),
-    createNode('p', '', `${getSelectedClass()?.name || ''} · ${result.testTitle}${student.completedAt ? ` · ${formatCompletedAt(student.completedAt)}` : ''}`)
+    createNode('p', '', `${getSelectedClass()?.name || ''} · ${result.testTitle || getSelectedTest()?.title || ''}${student.completedAt ? ` · ${formatCompletedAt(student.completedAt)}` : ''}`)
   );
   heading.append(headingCopy);
 
   const summaryGrid = createNode('div', 'summary-grid');
   summaryGrid.append(
-    addResultSummaryCard('Listening', `${result.listening.correct}/40 · Band ${result.listening.band}`),
-    addResultSummaryCard('Reading', `${result.reading.correct}/40 · Band ${result.reading.band}`),
+    addResultSummaryCard('Listening', `${result.listening.correct}/${result.listening.total} · Band ${result.listening.band}`),
+    addResultSummaryCard('Reading', `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}`),
     addResultSummaryCard('Tổng điểm', `Band ${formatBand(getAverageBand(result), 2)}`)
   );
 
