@@ -56,7 +56,7 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .questions-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(20, auto);
+  grid-template-rows: repeat(var(--question-rows, 20), auto);
   grid-auto-flow: column;
   gap: 12px;
   padding: 20px;

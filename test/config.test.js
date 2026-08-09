@@ -18,11 +18,14 @@ function summarize(controls) {
   }));
 }
 
-function assertValidConfig(source, config, slug) {
+function assertValidConfig(source, config, slug, expectedNumbers = {
+  listening: Array.from({ length: 40 }, (_, index) => index + 1),
+  reading: Array.from({ length: 40 }, (_, index) => index + 1)
+}) {
   assert.equal(config.slug, slug);
   for (const skill of ['listening', 'reading']) {
-    assert.equal(config[skill].controls.length, 40);
-    assert.deepEqual(Array.from(config[skill].controls, item => item.number), Array.from({ length: 40 }, (_, index) => index + 1));
+    assert.equal(config[skill].controls.length, expectedNumbers[skill].length);
+    assert.deepEqual(Array.from(config[skill].controls, item => item.number), expectedNumbers[skill]);
     assert.ok(config[skill].controls.every(item => ['text', 'select'].includes(item.kind)));
     assert.ok(config[skill].controls.filter(item => item.kind === 'select').every(item => item.options.length >= 2));
   }
@@ -58,4 +61,22 @@ test('Term Test 2 giữ câu 15 Listening là ô nhập và đúng các nhóm c�
   assert.equal(reading[18].kind, 'text');
   assert.deepEqual(reading[32].options, ['A', 'B', 'C', 'D', 'E']);
   assert.equal(reading[37].kind, 'text');
+});
+
+test('Mini Test Buổi 5 khớp toàn bộ loại ô và lựa chọn của Google Form cũ', async () => {
+  const { source, config } = await loadConfig('../mini-test-lesson-5/test-config.js');
+  assertValidConfig(source, config, 'mini-test-lesson-5', {
+    listening: Array.from({ length: 20 }, (_, index) => index + 11),
+    reading: Array.from({ length: 13 }, (_, index) => index + 14)
+  });
+  const listening = summarize(config.listening.controls);
+  const reading = summarize(config.reading.controls);
+  assert.deepEqual(listening[0].options, ['A', 'B', 'C']);
+  assert.deepEqual(listening[6].options, ['A', 'B', 'C', 'D', 'E', 'F', 'G']);
+  assert.deepEqual(listening[10].options, ['A', 'B', 'C']);
+  assert.deepEqual(listening[16].options, ['A', 'B', 'C', 'D', 'E', 'F']);
+  assert.deepEqual(reading[0].options, ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii']);
+  assert.deepEqual(reading[6].options, ['A', 'B', 'C', 'D', 'E']);
+  assert.equal(reading[10].kind, 'text');
+  assert.equal(reading[12].kind, 'text');
 });

@@ -8,7 +8,7 @@
 
   if (!testConfig || !appConfig || !root) return;
 
-  const storageKey = `izone-term-test:${testConfig.slug}:${classCode}`;
+  const storageKey = `izone-test:${testConfig.slug}:${classCode}`;
   const state = {
     stage: 'loading',
     roster: [],
@@ -46,7 +46,7 @@
     <header class="topbar">
       <p class="eyebrow">IZONE · IELTS 6–7</p>
       <h1>${testConfig.title}</h1>
-      <p>Nhập đáp án từ answer sheet giấy. Listening được lưu trước, sau đó hệ thống mở Reading và chấm toàn bộ khi hoàn tất.</p>
+      <p>${testConfig.intro || 'Nhập đáp án từ answer sheet giấy. Listening được lưu trước, sau đó hệ thống mở Reading và chấm toàn bộ khi hoàn tất.'}</p>
     </header>
     <main class="page-shell">
       <div class="progress" aria-label="Tiến độ bài test">
@@ -82,7 +82,7 @@
             <h2 id="listeningTitle"></h2>
             <ul class="instructions" id="listeningInstructions"></ul>
           </div>
-          <span class="answer-count" id="listeningCount">0/40 đã nhập</span>
+          <span class="answer-count" id="listeningCount">0/${testConfig.listening.controls.length} đã nhập</span>
         </div>
         <div class="questions-grid" id="listeningQuestions"></div>
         <div class="form-actions">
@@ -105,7 +105,7 @@
             <h2 id="readingTitle"></h2>
             <ul class="instructions" id="readingInstructions"></ul>
           </div>
-          <span class="answer-count" id="readingCount">0/40 đã nhập</span>
+          <span class="answer-count" id="readingCount">0/${testConfig.reading.controls.length} đã nhập</span>
         </div>
         <div class="questions-grid" id="readingQuestions"></div>
         <div class="form-actions">
@@ -211,6 +211,7 @@
   }
 
   function renderQuestionControls(section, container, skill) {
+    container.style.setProperty('--question-rows', String(Math.ceil(section.controls.length / 2)));
     const controls = section.controls.map(control => {
       const wrapper = document.createElement('label');
       wrapper.className = 'question';
@@ -261,7 +262,8 @@
     const container = skill === 'listening' ? elements.listeningQuestions : elements.readingQuestions;
     const counter = skill === 'listening' ? elements.listeningCount : elements.readingCount;
     const answered = Object.values(collectAnswers(container)).filter(Boolean).length;
-    counter.textContent = `${answered}/40 đã nhập`;
+    const total = skill === 'listening' ? testConfig.listening.controls.length : testConfig.reading.controls.length;
+    counter.textContent = `${answered}/${total} đã nhập`;
     return answered;
   }
 
@@ -309,8 +311,9 @@
   }
 
   function confirmIncomplete(answered, skillLabel) {
-    if (answered === 40) return true;
-    return window.confirm(`${skillLabel} hiện có ${answered}/40 câu đã nhập. Bạn vẫn muốn nộp bài?`);
+    const total = skillLabel === 'Listening' ? testConfig.listening.controls.length : testConfig.reading.controls.length;
+    if (answered === total) return true;
+    return window.confirm(`${skillLabel} hiện có ${answered}/${total} câu đã nhập. Bạn vẫn muốn nộp bài?`);
   }
 
   function setBusy(button, busy, busyText, normalText) {
@@ -354,7 +357,10 @@
     const block = document.createElement('details');
     block.className = 'detail-block';
     const summary = document.createElement('summary');
-    summary.textContent = `${title} · xem chi tiết 40 câu`;
+    const detailRows = details || [];
+    summary.textContent = detailRows.length
+      ? `${title} · xem chi tiết ${detailRows.length} câu`
+      : `${title} · chưa có dữ liệu từng câu`;
     const wrap = document.createElement('div');
     wrap.className = 'detail-table-wrap';
     const table = document.createElement('table');
@@ -368,7 +374,7 @@
     }
     head.append(headerRow);
     const body = document.createElement('tbody');
-    for (const detail of details || []) {
+    for (const detail of detailRows) {
       const row = document.createElement('tr');
       const resultMeta = {
         correct: { icon: '✓', label: 'Đúng' },
@@ -408,11 +414,11 @@
     const result = payload.result;
     state.result = payload;
     elements.resultStudentName.textContent = payload.studentName;
-    elements.resultMeta.textContent = `${payload.className} · ${result.testTitle}`;
+    elements.resultMeta.textContent = `${payload.className} · ${result.testTitle || testConfig.title}`;
     const averageBand = getAverageBand(result);
     elements.summaryGrid.replaceChildren(
-      addSummaryCard('Listening', `${result.listening.correct}/40 · Band ${result.listening.band}`),
-      addSummaryCard('Reading', `${result.reading.correct}/40 · Band ${result.reading.band}`),
+      addSummaryCard('Listening', `${result.listening.correct}/${result.listening.total} · Band ${result.listening.band}`),
+      addSummaryCard('Reading', `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}`),
       addSummaryCard('Tổng điểm', averageBand === null ? 'Chưa đủ dữ liệu' : `Band ${averageBand.toFixed(2)}`)
     );
     renderAnalysisList(elements.bestList, result.performance.best, 'Chưa có dạng nổi trội riêng.');
