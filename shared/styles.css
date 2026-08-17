@@ -121,7 +121,8 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .landing-card { width: min(560px, 100%); padding: 30px; }
 .landing-card h1 { margin: 5px 0 8px; font-size: 34px; }
 .landing-card > p:not(.eyebrow) { margin: 0 0 20px; color: var(--muted); line-height: 1.55; }
-.landing-actions { display: flex; gap: 10px; margin-top: 16px; }
+.landing-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.landing-actions .button { flex: 1 1 190px; }
 
 @media (max-width: 700px) {
   .questions-grid {
