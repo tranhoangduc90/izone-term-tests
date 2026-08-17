@@ -97,7 +97,9 @@ const server = http.createServer(async (req, res) => {
     if (!info.isFile()) throw new Error('not file');
     const type = filePath.endsWith('.html') ? 'text/html; charset=utf-8'
       : filePath.endsWith('.css') ? 'text/css; charset=utf-8'
-        : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'application/octet-stream';
+        : filePath.endsWith('.js') ? 'text/javascript; charset=utf-8'
+          : filePath.endsWith('.png') ? 'image/png'
+            : filePath.endsWith('.mp3') ? 'audio/mpeg' : 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': type });
     createReadStream(filePath).pipe(res);
   } catch {
