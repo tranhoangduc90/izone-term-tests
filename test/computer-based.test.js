@@ -113,4 +113,8 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /\['complete', 'listening-only'\]/);
   assert.match(source, /result\.reading\)/);
   assert.match(source, /portalSyncStatus/);
+  assert.match(source, /skillPerformanceSections/);
+  assert.match(source, /renderSkillPerformance\('Listening'/);
+  assert.match(source, /renderSkillPerformance\('Reading'/);
+  assert.match(source, /splitSkillPerformance/);
 });

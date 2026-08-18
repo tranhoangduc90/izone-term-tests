@@ -144,22 +144,7 @@
           <button class="button button-primary" id="continueReadingFromResult" type="button" hidden>Tiếp tục làm Reading</button>
         </div>
         <div id="questionDetails"></div>
-        <div class="analysis-grid">
-          <article class="analysis-card best">
-            <h3>Dạng làm tốt nhất</h3>
-            <ul class="analysis-list" id="bestList"></ul>
-          </article>
-          <article class="analysis-card improve">
-            <h3>Dạng cần cải thiện</h3>
-            <ul class="analysis-list" id="improveList"></ul>
-          </article>
-        </div>
-        <div class="detail-table-wrap">
-          <table class="performance-table">
-            <thead><tr><th>Dạng bài</th><th>Đúng</th><th>Tổng</th><th>Tỷ lệ</th></tr></thead>
-            <tbody id="performanceBody"></tbody>
-          </table>
-        </div>
+        <div class="skill-performance-list" id="skillPerformanceSections"></div>
       </section>
     </main>
   `;
@@ -169,8 +154,8 @@
     'listeningView', 'listeningTitle', 'listeningInstructions', 'listeningQuestions', 'listeningCount', 'submitListening',
     'listeningSavedView', 'viewListeningResult', 'startReading', 'readingView', 'readingTitle', 'readingInstructions',
     'readingQuestions', 'readingCount', 'readingStudentName', 'submitReading', 'resultReadyView',
-    'viewResult', 'resultView', 'resultStudentName', 'resultMeta', 'summaryGrid', 'bestList',
-    'improveList', 'performanceBody', 'questionDetails', 'resultStatus', 'continueReadingFromResult'
+    'viewResult', 'resultView', 'resultStudentName', 'resultMeta', 'summaryGrid',
+    'skillPerformanceSections', 'questionDetails', 'resultStatus', 'continueReadingFromResult'
   ].map(id => [id, document.getElementById(id)]));
 
   const progressSteps = [...document.querySelectorAll('[data-progress]')];
@@ -366,6 +351,86 @@
     }));
   }
 
+  function splitSkillPerformance(stats) {
+    const sorted = [...(stats || [])].sort((left, right) =>
+      right.percentage - left.percentage || left.type.localeCompare(right.type, 'vi')
+    );
+    if (!sorted.length) return { best: [], needsImprovement: [] };
+    const highest = sorted[0].percentage;
+    const lowest = sorted.at(-1).percentage;
+    return {
+      best: sorted.filter(item => item.percentage === highest),
+      needsImprovement: lowest === highest ? [] : sorted.filter(item => item.percentage === lowest)
+    };
+  }
+
+  function renderSkillPerformance(label, section) {
+    const wrapper = document.createElement('section');
+    wrapper.className = 'skill-performance-section';
+    wrapper.dataset.skillPerformance = label.toLowerCase();
+
+    const heading = document.createElement('header');
+    heading.className = 'skill-performance-heading';
+    const headingCopy = document.createElement('div');
+    const eyebrow = document.createElement('span');
+    eyebrow.textContent = 'Phân tích riêng';
+    const title = document.createElement('h3');
+    title.textContent = label;
+    headingCopy.append(eyebrow, title);
+    const score = document.createElement('strong');
+    score.textContent = `${section.correct}/${section.total} · Band ${section.band}`;
+    heading.append(headingCopy, score);
+
+    const analysis = splitSkillPerformance(section.typeStats);
+    const cards = document.createElement('div');
+    cards.className = 'analysis-grid';
+    const bestCard = document.createElement('article');
+    bestCard.className = 'analysis-card best';
+    const bestTitle = document.createElement('h4');
+    bestTitle.textContent = 'Dạng làm tốt nhất';
+    const bestList = document.createElement('ul');
+    bestList.className = 'analysis-list';
+    bestCard.append(bestTitle, bestList);
+    renderAnalysisList(bestList, analysis.best, 'Chưa có dữ liệu dạng bài.');
+
+    const improveCard = document.createElement('article');
+    improveCard.className = 'analysis-card improve';
+    const improveTitle = document.createElement('h4');
+    improveTitle.textContent = 'Dạng cần cải thiện';
+    const improveList = document.createElement('ul');
+    improveList.className = 'analysis-list';
+    improveCard.append(improveTitle, improveList);
+    renderAnalysisList(improveList, analysis.needsImprovement, 'Các dạng đang có kết quả ngang nhau.');
+    cards.append(bestCard, improveCard);
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'detail-table-wrap';
+    const table = document.createElement('table');
+    table.className = 'performance-table';
+    const head = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    for (const value of ['Dạng bài', 'Đúng', 'Tổng', 'Tỷ lệ']) {
+      const cell = document.createElement('th');
+      cell.textContent = value;
+      headerRow.append(cell);
+    }
+    head.append(headerRow);
+    const body = document.createElement('tbody');
+    for (const item of section.typeStats || []) {
+      const row = document.createElement('tr');
+      for (const value of [item.type, item.correct, item.total, `${Math.round(item.percentage * 100)}%`]) {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.append(cell);
+      }
+      body.append(row);
+    }
+    table.append(head, body);
+    tableWrap.append(table);
+    wrapper.append(heading, cards, tableWrap);
+    return wrapper;
+  }
+
   function renderDetailBlock(title, details) {
     const block = document.createElement('details');
     block.className = 'detail-block';
@@ -436,23 +501,15 @@
       addSummaryCard('Tổng điểm', averageBand === null ? 'Chưa đủ hai kỹ năng' : `Band ${averageBand.toFixed(2)}`)
     );
     elements.resultStatus.textContent = hasReading
-      ? 'Bạn đã hoàn thành cả Listening và Reading. Phân tích dưới đây tổng hợp cả hai kỹ năng.'
+      ? 'Bạn đã hoàn thành cả Listening và Reading. Kết quả và phân tích được tách riêng theo từng kỹ năng ở bên dưới.'
       : 'Listening đã được chấm và lưu riêng. Phân tích dưới đây chỉ dùng bài Listening; Reading chưa bị tính là 0 điểm.';
     elements.continueReadingFromResult.hidden = hasReading || Boolean(demoMode);
-    renderAnalysisList(elements.bestList, result.performance.best, 'Chưa có dạng nổi trội riêng.');
-    renderAnalysisList(elements.improveList, result.performance.needsImprovement, 'Các dạng đang có kết quả ngang nhau.');
-    elements.performanceBody.replaceChildren(...(result.typeStats || []).map(item => {
-      const row = document.createElement('tr');
-      for (const value of [item.type, item.correct, item.total, `${Math.round(item.percentage * 100)}%`]) {
-        const cell = document.createElement('td');
-        cell.textContent = value;
-        row.append(cell);
-      }
-      return row;
-    }));
     const detailBlocks = [renderDetailBlock('Listening', result.listening.details)];
     if (hasReading) detailBlocks.push(renderDetailBlock('Reading', result.reading.details));
     elements.questionDetails.replaceChildren(...detailBlocks);
+    const performanceSections = [renderSkillPerformance('Listening', result.listening)];
+    if (hasReading) performanceSections.push(renderSkillPerformance('Reading', result.reading));
+    elements.skillPerformanceSections.replaceChildren(...performanceSections);
   }
 
   function portalNotice(status, completed) {
