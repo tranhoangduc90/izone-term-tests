@@ -42,6 +42,32 @@
   margin-left: auto;
 }
 
+.cbt-mode .cbt-identity-panel {
+  grid-template-columns: minmax(210px, .72fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 11px 16px;
+}
+
+.cbt-mode .cbt-identity-panel h2 {
+  margin: 2px 0 0;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.cbt-mode .cbt-class-label {
+  margin: 0;
+  font-size: 10px;
+}
+
+.cbt-student-select {
+  display: block;
+}
+
+.cbt-student-select select {
+  min-height: 40px;
+}
+
 .cbt-mode .test-panel {
   overflow: hidden;
   border-radius: 12px;
@@ -50,7 +76,7 @@
 
 .cbt-mode .test-panel:not([hidden]) {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   height: calc(100vh - 180px);
   min-height: 680px;
   max-height: 1020px;
@@ -93,6 +119,17 @@
   border-bottom: 1px solid #dfe5ee;
 }
 
+.cbt-test-heading > div:first-child {
+  min-width: 0;
+}
+
+.cbt-heading-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .cbt-test-heading h2 {
   margin: 0;
   font-size: 18px;
@@ -114,6 +151,13 @@
 
 .cbt-test-heading .answer-count {
   padding: 6px 9px;
+}
+
+.cbt-heading-submit {
+  min-height: 34px;
+  padding: 7px 12px;
+  white-space: nowrap;
+  font-size: 12px;
 }
 
 .cbt-toolbar-controls {
@@ -1110,6 +1154,52 @@
 
   .cbt-mode .progress-step {
     padding: 7px 5px;
+    font-size: 10px;
+  }
+
+  .cbt-mode .cbt-identity-panel {
+    grid-template-columns: minmax(112px, .7fr) minmax(165px, 1.3fr);
+    gap: 8px;
+    padding: 9px 10px;
+  }
+
+  .cbt-mode .cbt-identity-panel h2 {
+    font-size: 16px;
+  }
+
+  .cbt-mode .cbt-class-label {
+    font-size: 9px;
+  }
+
+  .cbt-student-select select {
+    min-height: 36px;
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+
+  .cbt-test-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .cbt-test-heading h2 {
+    font-size: 16px;
+    line-height: 1.15;
+  }
+
+  .cbt-heading-actions {
+    gap: 5px;
+  }
+
+  .cbt-test-heading .answer-count {
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+
+  .cbt-heading-submit {
+    min-height: 31px;
+    padding: 6px 8px;
     font-size: 10px;
   }
 

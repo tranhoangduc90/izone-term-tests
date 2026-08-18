@@ -58,6 +58,28 @@
     return button;
   }
 
+  // Dữ liệu vào: khối chọn học viên do shared/app.js dựng và mã lớp tải từ API.
+  // Việc chính: bỏ nhãn lặp, đưa tên lớp lên trên tiêu đề và giữ dropdown trên cùng một hàng.
+  // Kết quả: phần đầu trang thấp hơn nhưng dropdown và dữ liệu học viên vẫn là phần tử gốc.
+  // Khi thiếu phần tử: giữ nguyên bố cục cũ để không cản học viên vào bài.
+  function compactIdentityPanel() {
+    const panel = document.getElementById('identityView');
+    const copy = panel?.querySelector('.identity-copy');
+    const oldEyebrow = copy?.querySelector('.eyebrow');
+    const classLabel = document.getElementById('classLabel');
+    const select = document.getElementById('studentSelect');
+    const selectLabel = select?.closest('label');
+    if (!panel || !copy || !classLabel || !select || !selectLabel) return;
+
+    oldEyebrow?.remove();
+    classLabel.classList.add('eyebrow', 'cbt-class-label');
+    copy.prepend(classLabel);
+    select.setAttribute('aria-label', 'Họ và tên');
+    selectLabel.classList.add('cbt-student-select');
+    selectLabel.replaceChildren(select);
+    panel.classList.add('cbt-identity-panel');
+  }
+
   function replaceInstructions(list, instructions) {
     list.replaceChildren(...instructions.map(text => {
       const item = document.createElement('li');
@@ -478,6 +500,24 @@
     return wrap;
   }
 
+  // Dữ liệu vào: bộ đếm câu đã làm và nút nộp gốc của từng kỹ năng.
+  // Việc chính: đặt hai phần tử cạnh nhau trên thanh tiêu đề và xóa khung chân trang rỗng.
+  // Kết quả: nút nộp vẫn nằm trong form nên validation, trạng thái bận và API giữ nguyên.
+  // Khi thiếu phần tử: không thay đổi DOM của form để luồng nộp bài cũ tiếp tục hoạt động.
+  function placeSubmitInHeading(skill, heading, actions) {
+    const count = document.getElementById(skill + 'Count');
+    const submit = actions.querySelector('button[type="submit"]');
+    if (!count || !submit) return false;
+
+    const cluster = document.createElement('div');
+    cluster.className = 'cbt-heading-actions';
+    submit.classList.add('cbt-heading-submit');
+    cluster.append(count, submit);
+    heading.append(cluster);
+    actions.remove();
+    return true;
+  }
+
   function enhanceForm(skill) {
     const form = document.getElementById(skill + 'View');
     const grid = document.getElementById(skill + 'Questions');
@@ -486,12 +526,17 @@
     if (!form || !grid || !heading || !actions) return null;
 
     const fields = collectFields(grid);
+    const submitMoved = placeSubmitInHeading(skill, heading, actions);
     const source = createSemanticPane(skill, contentConfig[skill], heading, fields);
     grid.className = 'questions-grid cbt-semantic-stage';
     grid.replaceChildren(source.pane);
     const nav = createQuestionNav(skill, source);
-    actions.classList.add('cbt-form-actions');
-    form.insertBefore(nav, actions);
+    if (submitMoved) {
+      form.append(nav);
+    } else {
+      actions.classList.add('cbt-form-actions');
+      form.insertBefore(nav, actions);
+    }
     form.classList.add('cbt-test-form', 'cbt-' + skill + '-form');
     return { form, source };
   }
@@ -616,6 +661,7 @@
   }
 
   document.body.classList.add('cbt-mode', 'cbt-semantic-mode');
+  compactIdentityPanel();
   const topbarTitle = document.querySelector('.topbar h1');
   const topbarIntro = document.querySelector('.topbar h1 + p');
   if (topbarTitle) topbarTitle.textContent = contentConfig.title;
