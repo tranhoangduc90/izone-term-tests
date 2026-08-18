@@ -28,27 +28,12 @@
       </div>
       <div class="cbt-choice-list">
         ${options.map(([value, text]) => `<label class="cbt-choice" data-choice-value="${value}">
-          <span class="cbt-choice-letter">${value}</span>
-          <span>${text}</span>
+          ${String(value).trim().toLowerCase() === String(text).trim().toLowerCase()
+            ? `<span>${text}</span>`
+            : `<span class="cbt-choice-letter">${value}</span><span>${text}</span>`}
         </label>`).join('')}
       </div>
       <span class="cbt-native-slot" data-answer-slot="${number}"></span>
-    </article>`;
-  }
-
-  function doubleChoice(numbers, prompt, options) {
-    return `<article class="cbt-question-card cbt-double-choice">
-      <div class="cbt-question-heading">
-        <span class="cbt-question-number">${numbers.join('–')}</span>
-        <p>${prompt}</p>
-      </div>
-      <div class="cbt-option-reference">
-        ${options.map(([value, text]) => `<div><strong>${value}</strong><span>${text}</span></div>`).join('')}
-      </div>
-      <div class="cbt-double-answer-row">
-        ${selectAnswer(numbers[0], 'Answer 1')}
-        ${selectAnswer(numbers[1], 'Answer 2')}
-      </div>
     </article>`;
   }
 
@@ -364,7 +349,7 @@
             <section class="cbt-subsection-heading"><h4>Questions 19–22</h4><p>Complete the summary below. Choose <strong>NO MORE THAN TWO WORDS</strong> from the passage for each answer.</p></section>
             <article class="cbt-summary-card"><h4>The impact of driverless cars</h4><p>Figures from the Transport Research Laboratory indicate that most motor accidents are partly due to ${textAnswer(19)}, so the introduction of driverless vehicles will result in greater safety. In addition to the direct benefits of automation, it may bring other advantages. For example, schemes for ${textAnswer(20)} will be more workable, especially in towns and cities, resulting in fewer cars on the road.</p><p>According to the University of Michigan Transportation Research Institute, there could be a 43 percent drop in ${textAnswer(21)} of cars. However, this would mean that the yearly ${textAnswer(22)} of each car would, on average, be twice as high as it currently is. This would lead to a higher turnover of vehicles, and therefore no reduction in automotive manufacturing.</p></article>
             <section class="cbt-subsection-heading"><h4>Questions 23 and 24</h4><p>Choose <strong>TWO</strong> letters, <strong>A–E</strong>.</p></section>
-            ${doubleChoice([23, 24], 'Which TWO benefits of automated vehicles does the writer mention?', [
+            ${multiChoice([23, 24], 'Which TWO benefits of automated vehicles does the writer mention?', [
               ['A', 'Car travellers could enjoy considerable cost savings.'],
               ['B', 'It would be easier to find parking spaces in urban areas.'],
               ['C', 'Travellers could spend journeys doing something other than driving.'],
@@ -372,7 +357,7 @@
               ['E', 'A reduction in the number of cars would mean a reduction in pollution.']
             ])}
             <section class="cbt-subsection-heading"><h4>Questions 25 and 26</h4><p>Choose <strong>TWO</strong> letters, <strong>A–E</strong>.</p></section>
-            ${doubleChoice([25, 26], 'Which TWO challenges to automated vehicle development does the writer mention?', [
+            ${multiChoice([25, 26], 'Which TWO challenges to automated vehicle development does the writer mention?', [
               ['A', 'making sure the general public has confidence in automated vehicles'],
               ['B', 'managing the pace of transition from conventional to automated vehicles'],
               ['C', 'deciding how to compensate professional drivers who become redundant'],
