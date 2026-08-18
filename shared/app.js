@@ -456,6 +456,11 @@
   }
 
   function portalNotice(status, completed) {
+    if (status === 'not_applicable') {
+      return completed
+        ? 'Bài đã được chấm và phân tích đầy đủ.'
+        : 'Listening đã được chấm và phân tích đầy đủ.';
+    }
     if (status === 'pending') {
       return completed
         ? 'Bài đã được chấm. Portal đang bận; hệ thống sẽ tự thử ghi lại khi bạn mở kết quả.'
