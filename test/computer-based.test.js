@@ -76,6 +76,9 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /attachAnswerFields/);
   assert.match(source, /syncMultiFields/);
   assert.match(source, /createSectionPager/);
+  assert.match(source, /compactIdentityPanel/);
+  assert.match(source, /placeSubmitInHeading/);
+  assert.match(source, /actions\.remove\(\)/);
   assert.match(source, /Previous ['"] \+ noun/);
   assert.match(source, /Next ['"] \+ noun/);
   assert.match(source, /grid\.replaceChildren\(source\.pane\)/);
