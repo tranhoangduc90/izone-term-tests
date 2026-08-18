@@ -80,7 +80,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v8/);
+  assert.match(html, /cbt-v9/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -101,8 +101,19 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /field\.dispatchEvent\(new Event\('input'/);
   assert.match(source, /setupBufferedAudio/);
   assert.match(source, /TERM_TEST_AUDIO_LOADER/);
-  assert.match(source, /lockListening\(true\)/);
+  assert.match(source, /cbt-listening-lobby/);
+  assert.match(source, /previewTime >= 30/);
+  assert.match(source, /previewHeard/);
+  assert.match(source, /setListeningVisible\(false\)/);
+  assert.match(source, /region\.hidden = !visible/);
+  assert.match(source, /region\.inert = !visible/);
   assert.match(source, /URL\.createObjectURL\(blob\)/);
+
+  const startHandlerIndex = source.indexOf("startButton.addEventListener('click'");
+  const officialPlayIndex = source.indexOf('await audio.play()', startHandlerIndex);
+  const revealIndex = source.indexOf('setListeningVisible(true)', startHandlerIndex);
+  assert.ok(startHandlerIndex >= 0 && officialPlayIndex > startHandlerIndex);
+  assert.ok(revealIndex > officialPlayIndex, 'Chỉ được hiện đề sau khi audio chính thức phát thành công');
 });
 
 test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo không gọi dữ liệu thật', async () => {

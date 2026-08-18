@@ -67,7 +67,7 @@
       instructions: [
         'Nhập hoặc chọn đáp án ngay trong từng câu hỏi.',
         'Dùng thanh số câu phía dưới để chuyển nhanh hoặc đánh dấu câu cần xem lại.',
-        'Audio chỉ bắt đầu khi bạn nhấn phát và không có nút tua.'
+        'Audio thi thật tự phát khi bạn bấm Bắt đầu thi Listening và không có nút tua.'
       ],
       sections: [
         {
