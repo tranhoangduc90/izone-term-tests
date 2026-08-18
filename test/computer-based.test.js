@@ -36,6 +36,19 @@ test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả l
   assert.match(listeningPart3, /data-question-numbers="29,30"/);
   assert.equal([...listeningPart3.matchAll(/data-choice-value="[A-E]"/g)].length, 11, 'Part 3 phải có 6 lựa chọn radio và 5 lựa chọn checkbox');
 
+  const readingPassage1 = config.reading.sections[0].questionsHtml;
+  assert.match(readingPassage1, /data-choice-value="TRUE">\s*<span>True<\/span>\s*<\/label>/);
+  assert.match(readingPassage1, /data-choice-value="FALSE">\s*<span>False<\/span>\s*<\/label>/);
+  assert.match(readingPassage1, /data-choice-value="NOT GIVEN">\s*<span>Not given<\/span>\s*<\/label>/);
+  assert.doesNotMatch(readingPassage1, /cbt-choice-letter">(?:TRUE|FALSE|NOT GIVEN)<\/span>/);
+
+  const readingPassage2 = config.reading.sections[1].questionsHtml;
+  assert.equal([...readingPassage2.matchAll(/data-control="multi"/g)].length, 2);
+  assert.match(readingPassage2, /data-question-numbers="23,24"/);
+  assert.match(readingPassage2, /data-question-numbers="25,26"/);
+  assert.equal([...readingPassage2.matchAll(/data-choice-value="[A-E]"/g)].length, 10);
+  assert.doesNotMatch(readingPassage2, /cbt-double-choice/);
+
   for (const section of Array.from(config.reading.sections)) {
     assert.match(section.passageHtml, /<p>|cbt-lettered-paragraph/);
     assert.match(section.questionsHtml, /data-answer-slot=/);
@@ -65,6 +78,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(sharedAppIndex < enhanceIndex);
   assert.match(html, /media-src 'self'/);
   assert.match(html, /object-src 'none'/);
+  assert.match(html, /cbt-v6/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
