@@ -12,19 +12,32 @@ async function loadContentConfig() {
   return { source, config: context.window.TERM_TEST_CONTENT };
 }
 
-test('bản computer-based dùng đúng Term Test 2 và đủ trang đề', async () => {
+test('bản computer-based dùng đúng Term Test 2, đủ trang và đủ vị trí 40 câu', async () => {
   const { source, config } = await loadContentConfig();
-  assert.equal(config.variant, 'computer-based');
+  assert.equal(config.variant, 'inline-on-paper');
   assert.equal(config.baseTestSlug, 'term-test-2');
   assert.equal(config.listening.sections.length, 4);
   assert.equal(config.reading.sections.length, 3);
 
-  const listeningPages = config.listening.sections.flatMap(section => Array.from(section.pages));
-  const readingPages = config.reading.sections.flatMap(section => Array.from(section.pages));
+  const listeningPageConfigs = Array.from(config.listening.sections).flatMap(section => Array.from(section.pages));
+  const readingPageConfigs = Array.from(config.reading.sections).flatMap(section => Array.from(section.pages));
+  const listeningPages = listeningPageConfigs.map(page => page.src);
+  const readingPages = readingPageConfigs.map(page => page.src);
   assert.equal(listeningPages.length, 6);
   assert.equal(readingPages.length, 12);
   assert.equal(new Set(listeningPages).size, listeningPages.length);
   assert.equal(new Set(readingPages).size, readingPages.length);
+
+  for (const pages of [listeningPageConfigs, readingPageConfigs]) {
+    const positions = pages.flatMap(page => Array.from(page.answers || []));
+    const numbers = positions.map(item => item.number).sort((a, b) => a - b);
+    assert.deepEqual(numbers, Array.from({ length: 40 }, (_, index) => index + 1));
+    positions.forEach(item => {
+      assert.ok(item.x >= 0 && item.x <= 100, 'Tọa độ x không hợp lệ ở câu ' + item.number);
+      assert.ok(item.y >= 0 && item.y <= 100, 'Tọa độ y không hợp lệ ở câu ' + item.number);
+      assert.ok(item.width >= 10 && item.x + item.width <= 100, 'Độ rộng không hợp lệ ở câu ' + item.number);
+    });
+  }
 
   for (const relativePath of [...listeningPages, ...readingPages, config.audio.src]) {
     const info = await stat(new URL(relativePath, routeUrl));
@@ -55,6 +68,8 @@ test('mã tăng cường không thay API, slug hoặc nhúng đáp án', async (
   const source = await readFile(new URL('enhance.js', routeUrl), 'utf8');
   assert.equal(/accepted|correctAnswer|answerKey/i.test(source), false);
   assert.equal(/API_BASE_URL|\/api\/term-tests\//.test(source), false);
-  assert.equal(/shell\.dataset\.number/.test(source), false, 'Không được trùng data-number của ô trả lời');
+  assert.equal(/wrapper\.dataset\.number/.test(source), false, 'Không được trùng data-number của ô trả lời');
   assert.match(source, /shared\/app\.js/);
+  assert.match(source, /createInlineAnswer/);
+  assert.match(source, /grid\.replaceChildren\(source\.pane\)/);
 });

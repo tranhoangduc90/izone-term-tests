@@ -2,7 +2,7 @@
 
 Các answer sheet tĩnh cho Term Test 1, Term Test 2 và Mini Test Buổi 5. Mỗi trang đọc mã lớp từ query `?class=IC2139`, tải danh sách học viên từ API tích hợp, lưu Listening trước rồi mới mở Reading, sau đó hiển thị kết quả và phân tích.
 
-Route `/term-test-2-computer-based/` là bản giao diện mở rộng của Term Test 2. Trang này vẫn dùng nguyên API, slug, dữ liệu tạm, luồng nộp và màn hình kết quả hiện tại, đồng thời hiển thị đề scan, audio, hai khung đổi độ rộng, điều hướng 40 câu và đánh dấu câu cần xem lại.
+Route `/term-test-2-computer-based/` là bản giao diện mở rộng của Term Test 2. Trang này vẫn dùng nguyên API, slug, dữ liệu tạm, luồng nộp và màn hình kết quả hiện tại, đồng thời đặt 40 ô trả lời trực tiếp lên đúng vị trí trong đề scan, có audio, điều hướng câu và đánh dấu câu cần xem lại.
 
 Trang `/teacher/` dành cho giảng viên đã được cấp quyền Google. Trang này có tổng quan Band của cả lớp và tab kết quả chi tiết cho từng học viên; dữ liệu chỉ được API trả về sau khi kiểm tra quyền theo lớp.
 
