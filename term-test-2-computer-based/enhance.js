@@ -12,10 +12,10 @@
   const uiStorageKey = 'izone-test-ui:' + testConfig.slug + ':' + classCode;
   const uiState = readUiState();
 
-  // Dữ liệu vào: trạng thái bố cục, câu đánh dấu và vị trí audio trong tab hiện tại.
-  // Việc chính: đọc an toàn rồi bổ sung giá trị mặc định cho từng kỹ năng.
-  // Kết quả: giao diện có thể tiếp tục sau khi tải lại mà không đụng tới mã lượt làm.
-  // Khi lỗi: dùng cấu hình mặc định; luồng nộp bài cốt lõi của shared/app.js vẫn hoạt động.
+  // Dữ liệu vào: trạng thái đánh dấu, mức phóng to và vị trí audio trong tab hiện tại.
+  // Việc chính: đọc an toàn rồi bổ sung giá trị mặc định cho từng phần thi.
+  // Kết quả: tải lại trang không làm mất bố cục đang dùng hoặc câu đã đánh dấu.
+  // Khi lỗi: dùng cấu hình mặc định; luồng nộp bài gốc vẫn hoạt động.
   function readUiState() {
     let stored = {};
     try {
@@ -28,17 +28,9 @@
         listening: { ...(stored.flags?.listening || {}) },
         reading: { ...(stored.flags?.reading || {}) }
       },
-      ratios: {
-        listening: Number(stored.ratios?.listening) || 52,
-        reading: Number(stored.ratios?.reading) || 52
-      },
       zoom: {
         listening: Number(stored.zoom?.listening) || 100,
         reading: Number(stored.zoom?.reading) || 100
-      },
-      mobilePane: {
-        listening: stored.mobilePane?.listening === 'answer' ? 'answer' : 'source',
-        reading: stored.mobilePane?.reading === 'answer' ? 'answer' : 'source'
       },
       audio: {
         started: Boolean(stored.audio?.started),
@@ -52,7 +44,7 @@
     try {
       sessionStorage.setItem(uiStorageKey, JSON.stringify(uiState));
     } catch {
-      // sessionStorage có thể bị chặn; bài làm vẫn được shared/app.js xử lý như cũ.
+      // sessionStorage có thể bị chặn; shared/app.js vẫn giữ toàn bộ luồng làm bài.
     }
   }
 
@@ -80,23 +72,70 @@
     return String(minutes).padStart(2, '0') + ':' + String(remaining).padStart(2, '0');
   }
 
-  // Dữ liệu vào: cấu hình các Part/Passage cùng đường dẫn ảnh scan.
-  // Việc chính: dựng vùng đề, nút nhảy phần và công cụ phóng to.
-  // Kết quả: học viên đọc đúng đề bên cạnh phiếu trả lời, không có đáp án trong DOM.
-  // Khi ảnh lỗi: trình duyệt hiện alt text và test tài nguyên sẽ báo trước khi phát hành.
-  function createSourcePanel(skill, sectionConfig) {
-    const pane = document.createElement('aside');
+  function collectFields(grid) {
+    const fields = new Map();
+    grid.querySelectorAll('.question').forEach(question => {
+      const field = question.querySelector('[data-number]');
+      if (!field) return;
+      const number = field.dataset.number;
+      field.setAttribute('aria-label', 'Câu ' + number);
+      field.title = 'Câu ' + number;
+      if (field.tagName === 'INPUT') {
+        field.placeholder = 'Nhập đáp án';
+      } else if (field.options[0]) {
+        field.options[0].textContent = '—';
+      }
+      fields.set(number, field);
+    });
+    return fields;
+  }
+
+  function createInlineAnswer(skill, answer, fields) {
+    const number = String(answer.number);
+    const field = fields.get(number);
+    if (!field) return null;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cbt-inline-answer';
+    wrapper.classList.add(field.tagName === 'SELECT' ? 'is-select' : 'is-text');
+    wrapper.dataset.questionNumber = number;
+    wrapper.style.left = answer.x + '%';
+    wrapper.style.top = answer.y + '%';
+    wrapper.style.width = answer.width + '%';
+
+    const badge = document.createElement('span');
+    badge.className = 'cbt-inline-number';
+    badge.textContent = number;
+    badge.setAttribute('aria-hidden', 'true');
+
+    const flagButton = makeButton('cbt-inline-flag', '⚑');
+    flagButton.setAttribute('aria-label', 'Đánh dấu câu ' + number);
+    flagButton.title = 'Đánh dấu để xem lại';
+    wrapper.append(badge, field, flagButton);
+    return { skill, number, field, wrapper, flagButton };
+  }
+
+  // Dữ liệu vào: ảnh scan, tọa độ câu hỏi và 40 ô trả lời do shared/app.js dựng.
+  // Việc chính: đặt từng ô lên đúng phần trống tương ứng trong trang đề.
+  // Kết quả: học viên thao tác trực tiếp trên đề nhưng dữ liệu vẫn đi qua code cũ.
+  // Khi ảnh lỗi: trình duyệt hiện alt text; test tài nguyên sẽ chặn phát hành.
+  function createSourcePanel(skill, sectionConfig, heading, fields) {
+    const pane = document.createElement('section');
     pane.className = 'cbt-source-pane';
-    pane.setAttribute('aria-label', skill === 'listening' ? 'Đề Listening' : 'Đề Reading');
+    pane.setAttribute('aria-label', skill === 'listening' ? 'Đề Listening tương tác' : 'Đề Reading tương tác');
 
     const toolbar = document.createElement('div');
     toolbar.className = 'cbt-source-toolbar';
+    heading.classList.add('cbt-test-heading');
 
     const titleRow = document.createElement('div');
     titleRow.className = 'cbt-source-toolbar-row';
     const title = document.createElement('strong');
-    title.textContent = skill === 'listening' ? 'Đề Listening' : 'Đề Reading';
-    titleRow.append(title);
+    title.textContent = 'Làm bài trực tiếp trên đề';
+    const helper = document.createElement('span');
+    helper.className = 'cbt-toolbar-helper';
+    helper.textContent = 'Ô xanh là vị trí nhập hoặc chọn đáp án.';
+    titleRow.append(title, helper);
 
     const partRow = document.createElement('div');
     partRow.className = 'cbt-source-toolbar-row';
@@ -105,28 +144,46 @@
     scroll.className = 'cbt-source-scroll';
     scroll.tabIndex = 0;
 
+    const items = [];
+    const pageFrames = [];
     const documentSections = sectionConfig.sections.map((section, sectionIndex) => {
       const sectionNode = document.createElement('section');
       sectionNode.className = 'cbt-document-section';
       sectionNode.id = 'cbt-' + skill + '-section-' + (sectionIndex + 1);
 
-      const heading = document.createElement('h3');
-      heading.textContent = section.label;
+      const sectionHeading = document.createElement('h3');
+      sectionHeading.textContent = section.label;
       const stack = document.createElement('div');
       stack.className = 'cbt-page-stack';
 
-      section.pages.forEach((src, pageIndex) => {
+      section.pages.forEach((page, pageIndex) => {
+        const frame = document.createElement('div');
+        frame.className = 'cbt-page-frame';
+        frame.dataset.pageSrc = page.src;
+
         const image = document.createElement('img');
         image.className = 'cbt-page';
-        image.src = src;
+        image.src = page.src;
         image.loading = pageIndex === 0 && sectionIndex === 0 ? 'eager' : 'lazy';
         image.decoding = 'async';
         image.alt = section.label + ' · trang ' + (pageIndex + 1);
-        image.style.width = uiState.zoom[skill] + '%';
-        stack.append(image);
+
+        const layer = document.createElement('div');
+        layer.className = 'cbt-answer-layer';
+        layer.setAttribute('aria-label', 'Các ô trả lời trên trang đề');
+        (page.answers || []).forEach(answer => {
+          const item = createInlineAnswer(skill, answer, fields);
+          if (!item) return;
+          items.push(item);
+          layer.append(item.wrapper);
+        });
+
+        frame.append(image, layer);
+        stack.append(frame);
+        pageFrames.push(frame);
       });
 
-      sectionNode.append(heading, stack);
+      sectionNode.append(sectionHeading, stack);
       scroll.append(sectionNode);
 
       const partButton = makeButton('cbt-part-button', section.label.replace('Questions', 'Q'));
@@ -138,20 +195,22 @@
     });
 
     const zoomRow = document.createElement('div');
-    zoomRow.className = 'cbt-source-toolbar-row';
+    zoomRow.className = 'cbt-source-toolbar-row cbt-zoom-row';
     const zoomOut = makeButton('cbt-tool-button', '−');
     zoomOut.setAttribute('aria-label', 'Thu nhỏ đề');
     const zoomLabel = document.createElement('span');
     zoomLabel.className = 'cbt-zoom-label';
     const zoomIn = makeButton('cbt-tool-button', '+');
     zoomIn.setAttribute('aria-label', 'Phóng to đề');
-    const fitButton = makeButton('cbt-tool-button', 'Vừa khung');
+    const fitButton = makeButton('cbt-tool-button', '100%');
+    fitButton.setAttribute('aria-label', 'Đưa đề về kích thước 100 phần trăm');
 
     function applyZoom(nextZoom) {
       uiState.zoom[skill] = Math.min(160, Math.max(80, nextZoom));
       zoomLabel.textContent = uiState.zoom[skill] + '%';
-      scroll.querySelectorAll('.cbt-page').forEach(image => {
-        image.style.width = uiState.zoom[skill] + '%';
+      const baseWidth = Number(contentConfig.pageSize?.width) || 827;
+      pageFrames.forEach(frame => {
+        frame.style.width = Math.round(baseWidth * uiState.zoom[skill] / 100) + 'px';
       });
       saveUiState();
     }
@@ -162,140 +221,62 @@
     zoomRow.append(zoomOut, zoomLabel, zoomIn, fitButton);
     applyZoom(uiState.zoom[skill]);
 
-    toolbar.append(titleRow, partRow, zoomRow);
+    toolbar.append(heading, titleRow, partRow, zoomRow);
     pane.append(toolbar, scroll);
-    return { pane, toolbar, scroll, documentSections };
+    return { pane, toolbar, scroll, items, documentSections };
   }
 
-  function createMobileTabs(skill, workspace) {
-    const tabs = document.createElement('div');
-    tabs.className = 'cbt-mobile-tabs';
-    tabs.setAttribute('aria-label', 'Chọn vùng hiển thị');
-    const sourceButton = makeButton('cbt-mobile-tab', 'Đề thi');
-    const answerButton = makeButton('cbt-mobile-tab', 'Phiếu trả lời');
-    const buttons = { source: sourceButton, answer: answerButton };
-
-    function setMobilePane(pane) {
-      workspace.dataset.mobilePane = pane;
-      uiState.mobilePane[skill] = pane;
-      Object.entries(buttons).forEach(([name, button]) => {
-        const active = name === pane;
-        button.classList.toggle('is-active', active);
-        button.setAttribute('aria-pressed', String(active));
-      });
-      saveUiState();
-    }
-
-    sourceButton.addEventListener('click', () => setMobilePane('source'));
-    answerButton.addEventListener('click', () => setMobilePane('answer'));
-    tabs.append(sourceButton, answerButton);
-    setMobilePane(uiState.mobilePane[skill]);
-    return { tabs, setMobilePane };
-  }
-
-  function setupResizer(skill, workspace, resizer) {
-    function applyRatio(ratio) {
-      const safeRatio = Math.min(68, Math.max(35, ratio));
-      uiState.ratios[skill] = safeRatio;
-      workspace.style.setProperty('--source-width', safeRatio + '%');
-      resizer.setAttribute('aria-valuenow', String(Math.round(safeRatio)));
-      saveUiState();
-    }
-
-    function updateFromPointer(event) {
-      const bounds = workspace.getBoundingClientRect();
-      if (!bounds.width) return;
-      applyRatio(((event.clientX - bounds.left) / bounds.width) * 100);
-    }
-
-    resizer.addEventListener('pointerdown', event => {
-      resizer.setPointerCapture(event.pointerId);
-      updateFromPointer(event);
-    });
-    resizer.addEventListener('pointermove', event => {
-      if (resizer.hasPointerCapture(event.pointerId)) updateFromPointer(event);
-    });
-    resizer.addEventListener('pointerup', event => {
-      if (resizer.hasPointerCapture(event.pointerId)) resizer.releasePointerCapture(event.pointerId);
-    });
-    resizer.addEventListener('keydown', event => {
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        applyRatio(uiState.ratios[skill] - 2);
-      }
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        applyRatio(uiState.ratios[skill] + 2);
-      }
-    });
-    applyRatio(uiState.ratios[skill]);
-  }
-
-  // Dữ liệu vào: 40 ô trả lời do shared/app.js đã dựng.
-  // Việc chính: thêm trạng thái đã làm/đánh dấu, điều hướng và điểm focus.
-  // Kết quả: học viên nhảy nhanh tới từng câu; dữ liệu trả lời vẫn do code cũ lưu/nộp.
-  // Khi enhancement lỗi: form gốc vẫn giữ nguyên các ô và nút nộp.
-  function enhanceQuestions(skill, grid, setMobilePane) {
-    const shells = [];
+  // Dữ liệu vào: các ô đã được ghép lên trang đề.
+  // Việc chính: đồng bộ trạng thái đã làm, đánh dấu và điều hướng 40 câu.
+  // Kết quả: thanh số câu hoạt động như bài mẫu IZONE và focus đúng ô trên đề.
+  // Khi một ô thiếu: test cấu hình sẽ báo trước khi bản mới được phát hành.
+  function enhanceQuestions(skill, items) {
     const nav = document.createElement('nav');
     nav.className = 'cbt-question-nav';
     nav.setAttribute('aria-label', 'Điều hướng câu hỏi');
     let activeNumber = '';
 
-    grid.querySelectorAll('.question').forEach(question => {
-      const field = question.querySelector('[data-number]');
-      if (!field) return;
-      const number = field.dataset.number;
-      const shell = document.createElement('div');
-      shell.className = 'cbt-question-shell';
-      shell.dataset.questionNumber = number;
-      question.before(shell);
-      shell.append(question);
-
-      const flagButton = makeButton('cbt-flag-button', '⚑');
-      flagButton.setAttribute('aria-label', 'Đánh dấu câu ' + number);
-      flagButton.title = 'Đánh dấu để xem lại';
-      shell.append(flagButton);
-
-      const navButton = makeButton('cbt-question-button', number);
-      navButton.setAttribute('aria-label', 'Mở câu ' + number);
+    items.sort((a, b) => Number(a.number) - Number(b.number));
+    items.forEach(item => {
+      const navButton = makeButton('cbt-question-button', item.number);
+      navButton.setAttribute('aria-label', 'Mở câu ' + item.number);
       nav.append(navButton);
-      shells.push({ number, field, shell, flagButton, navButton });
+      item.navButton = navButton;
 
       function updateStatus() {
-        const answered = Boolean(field.value.trim());
-        const flagged = Boolean(uiState.flags[skill][number]);
-        shell.classList.toggle('is-flagged', flagged);
+        const answered = Boolean(item.field.value.trim());
+        const flagged = Boolean(uiState.flags[skill][item.number]);
+        item.wrapper.classList.toggle('is-answered', answered);
+        item.wrapper.classList.toggle('is-flagged', flagged);
         navButton.classList.toggle('is-answered', answered);
         navButton.classList.toggle('is-flagged', flagged);
-        navButton.classList.toggle('is-active', activeNumber === number);
-        flagButton.setAttribute('aria-pressed', String(flagged));
+        navButton.classList.toggle('is-active', activeNumber === item.number);
+        item.flagButton.setAttribute('aria-pressed', String(flagged));
       }
 
-      flagButton.addEventListener('click', () => {
-        uiState.flags[skill][number] = !uiState.flags[skill][number];
+      item.flagButton.addEventListener('click', () => {
+        uiState.flags[skill][item.number] = !uiState.flags[skill][item.number];
         updateStatus();
         saveUiState();
       });
       navButton.addEventListener('click', () => {
-        setMobilePane('answer');
-        activeNumber = number;
-        shells.forEach(item => {
-          item.shell.classList.toggle('is-active', item.number === number);
-          item.navButton.classList.toggle('is-active', item.number === number);
+        activeNumber = item.number;
+        items.forEach(other => {
+          other.wrapper.classList.toggle('is-active', other.number === item.number);
+          other.navButton.classList.toggle('is-active', other.number === item.number);
         });
-        shell.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        window.setTimeout(() => field.focus({ preventScroll: true }), 350);
+        item.wrapper.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        window.setTimeout(() => item.field.focus({ preventScroll: true }), 350);
       });
-      field.addEventListener('focus', () => {
-        activeNumber = number;
-        shells.forEach(item => {
-          item.shell.classList.toggle('is-active', item.number === number);
-          item.navButton.classList.toggle('is-active', item.number === number);
+      item.field.addEventListener('focus', () => {
+        activeNumber = item.number;
+        items.forEach(other => {
+          other.wrapper.classList.toggle('is-active', other.number === item.number);
+          other.navButton.classList.toggle('is-active', other.number === item.number);
         });
       });
-      field.addEventListener('input', updateStatus);
-      field.addEventListener('change', updateStatus);
+      item.field.addEventListener('input', updateStatus);
+      item.field.addEventListener('change', updateStatus);
       updateStatus();
     });
 
@@ -303,7 +284,7 @@
     wrap.className = 'cbt-question-nav-wrap';
     const legend = document.createElement('div');
     legend.className = 'cbt-nav-legend';
-    legend.textContent = 'Xanh: đã trả lời · Gạch vàng: đã đánh dấu · Xanh đậm: câu đang chọn';
+    legend.textContent = 'Xanh lá: đã trả lời · Gạch vàng: đã đánh dấu · Xanh đậm: câu đang chọn';
     wrap.append(nav, legend);
     return wrap;
   }
@@ -315,35 +296,22 @@
     const actions = form?.querySelector('.form-actions');
     if (!form || !heading || !grid || !actions) return null;
 
-    const workspace = document.createElement('div');
-    workspace.className = 'cbt-workspace';
-    const mobileTabs = createMobileTabs(skill, workspace);
-    const source = createSourcePanel(skill, contentConfig[skill]);
-    const resizer = document.createElement('div');
-    resizer.className = 'cbt-resizer';
-    resizer.tabIndex = 0;
-    resizer.setAttribute('role', 'separator');
-    resizer.setAttribute('aria-label', 'Đổi độ rộng vùng đề và phiếu trả lời');
-    resizer.setAttribute('aria-orientation', 'vertical');
-    resizer.setAttribute('aria-valuemin', '35');
-    resizer.setAttribute('aria-valuemax', '68');
+    const fields = collectFields(grid);
+    const source = createSourcePanel(skill, contentConfig[skill], heading, fields);
+    const questionNav = enhanceQuestions(skill, source.items);
 
-    const answerPane = document.createElement('section');
-    answerPane.className = 'cbt-answer-pane';
-    answerPane.setAttribute('aria-label', skill === 'listening' ? 'Phiếu trả lời Listening' : 'Phiếu trả lời Reading');
-    const questionNav = enhanceQuestions(skill, grid, mobileTabs.setMobilePane);
+    grid.classList.add('cbt-inline-stage');
+    grid.replaceChildren(source.pane);
     actions.classList.add('cbt-form-actions');
-    answerPane.append(heading, grid, questionNav, actions);
-    workspace.append(source.pane, resizer, answerPane);
-    form.replaceChildren(mobileTabs.tabs, workspace);
-    setupResizer(skill, workspace, resizer);
+    form.replaceChildren(grid, questionNav, actions);
+
     const resetScroll = () => {
       source.scroll.scrollTop = 0;
-      answerPane.scrollTop = 0;
+      source.scroll.scrollLeft = 0;
     };
     window.requestAnimationFrame(resetScroll);
     window.addEventListener('load', resetScroll, { once: true });
-    return { form, source, answerPane, workspace, setMobilePane: mobileTabs.setMobilePane };
+    return { form, source };
   }
 
   function setupAudio(listeningForm) {
@@ -462,12 +430,19 @@
     });
   }
 
-  document.body.classList.add('cbt-mode');
+  document.body.classList.add('cbt-mode', 'cbt-inline-mode');
   const topbarTitle = document.querySelector('.topbar h1');
   const topbarIntro = document.querySelector('.topbar h1 + p');
   if (topbarTitle) topbarTitle.textContent = contentConfig.title;
   if (topbarIntro) {
-    topbarIntro.textContent = 'Đề thi và phiếu trả lời nằm trên cùng một màn hình. Kết quả vẫn được lưu, chấm và phân tích bằng hệ thống Term Test 2 hiện tại.';
+    topbarIntro.textContent = 'Học viên nhập và chọn đáp án ngay trên nội dung đề. Luồng lưu bài, chấm điểm và kết quả vẫn dùng nguyên hệ thống Term Test 2.';
+  }
+
+  const loadingLabel = document.querySelector('#loadingState strong');
+  const listeningSavedCopy = document.querySelector('#listeningSavedView .transition-card p:not(.eyebrow)');
+  if (loadingLabel) loadingLabel.textContent = 'Đang chuẩn bị đề tương tác...';
+  if (listeningSavedCopy) {
+    listeningSavedCopy.textContent = 'Hệ thống đã ghi bài Listening. Khi sẵn sàng, nhấn nút dưới đây để mở phần Reading và làm trực tiếp trên đề.';
   }
 
   const listeningInstructions = document.getElementById('listeningInstructions');
