@@ -73,6 +73,7 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 
 .transition-card { padding: 34px 26px; text-align: center; }
 .transition-card p { max-width: 600px; margin: 10px auto 20px; color: var(--muted); line-height: 1.55; }
+.transition-actions { justify-content: center; padding: 0; }
 .transition-icon { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 14px; color: #fff; background: var(--green); border-radius: 50%; font-size: 28px; font-weight: 900; }
 
 .result-panel { padding: 22px; }
@@ -82,6 +83,8 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .summary-card { padding: 17px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 13px; }
 .summary-card span { display: block; color: var(--muted); font-size: 12px; }
 .summary-card strong { display: block; margin-top: 7px; color: var(--navy); font-size: 27px; letter-spacing: -.03em; }
+.result-status { margin: -4px 0 18px; padding: 12px 14px; color: var(--muted); background: var(--surface-soft); border-left: 4px solid var(--blue); border-radius: 8px; line-height: 1.5; }
+.result-actions { justify-content: flex-start; padding: 0 0 2px; }
 .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .analysis-card { padding: 17px; border: 1px solid var(--line); border-radius: 13px; }
 .analysis-card h3 { margin: 0 0 12px; font-size: 16px; }
