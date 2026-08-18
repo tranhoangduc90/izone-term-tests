@@ -10,9 +10,10 @@
   if (!contentConfig || !testConfig || contentConfig.baseTestSlug !== testConfig.slug) return;
 
   const uiStorageKey = 'izone-test-ui:' + testConfig.slug + ':' + classCode;
+  const submissionStorageKey = 'izone-test:' + testConfig.slug + ':' + classCode;
   const uiState = readUiState();
 
-  // Dữ liệu vào: phần đang mở, câu đánh dấu, cỡ chữ và vị trí audio trong tab hiện tại.
+  // Dữ liệu vào: phần đang mở, câu đánh dấu, cỡ chữ, vị trí audio và hạn giờ Reading trong tab hiện tại.
   // Việc chính: đọc an toàn rồi bổ sung giá trị mặc định cho Listening và Reading.
   // Kết quả: tải lại trang vẫn trở về đúng ngữ cảnh học viên đang làm.
   // Khi lỗi: dùng cấu hình mặc định; luồng lưu bài của shared/app.js không bị ảnh hưởng.
@@ -40,6 +41,10 @@
         started: Boolean(stored.audio?.started),
         time: Number(stored.audio?.time) || 0,
         volume: Number(stored.audio?.volume) || 1
+      },
+      readingTimer: {
+        deadline: Number(stored.readingTimer?.deadline) || 0,
+        attemptToken: String(stored.readingTimer?.attemptToken || '')
       }
     };
   }
@@ -604,7 +609,7 @@
     retryButton.hidden = true;
     downloadStep.body.append(downloadStatus, downloadProgress, retryButton);
 
-    const previewStep = createLobbyStep(2, 'Nghe thử 30 giây', 'Nghe đoạn đầu và chỉnh âm lượng cho vừa tai. Đoạn thử không làm mất phần audio thi thật.');
+    const previewStep = createLobbyStep(2, 'Nghe thử 30 giây', 'Nghe đoạn đầu và chỉnh âm lượng cho vừa tai. Mức này được giữ nguyên cho toàn bộ bài thi Listening.');
     const previewControls = document.createElement('div');
     previewControls.className = 'cbt-lobby-preview-controls';
     const previewButton = makeButton('cbt-audio-preview', 'Nghe thử 30 giây đầu');
@@ -975,6 +980,109 @@
     downloadFullAudio();
   }
 
+  // Dữ liệu vào: form Reading, mốc kết thúc đã lưu và trạng thái gửi bài của shared/app.js.
+  // Việc chính: bắt đầu 60 phút khi đề Reading xuất hiện, cảnh báo 10 phút cuối và tự gửi khi hết giờ.
+  // Kết quả: tải lại trang không được cộng lại thời gian; bài hết giờ tự chấm, đồng bộ Portal và mở phân tích.
+  // Khi lỗi mạng: giữ nguyên draft và thử nộp lại mỗi 15 giây trong lúc trang Reading còn mở.
+  function setupReadingTimer(readingForm) {
+    if (!readingForm) return;
+    const headingActions = readingForm.form.querySelector('.cbt-heading-actions');
+    if (!headingActions) return;
+
+    const durationMs = 60 * 60 * 1000;
+    const retryDelayMs = 15 * 1000;
+    const clock = document.createElement('div');
+    clock.className = 'cbt-reading-clock';
+    clock.setAttribute('role', 'timer');
+    clock.setAttribute('aria-live', 'polite');
+    clock.setAttribute('aria-label', 'Thời gian còn lại của bài Reading');
+    const clockLabel = document.createElement('span');
+    clockLabel.textContent = 'Còn';
+    const clockValue = document.createElement('strong');
+    clockValue.textContent = '60';
+    const clockTotal = document.createElement('span');
+    clockTotal.textContent = '/ 60 phút';
+    clock.append(clockLabel, clockValue, clockTotal);
+    headingActions.prepend(clock);
+
+    const autoSubmitButton = makeButton('cbt-reading-auto-submit', 'Tự nộp bài Reading');
+    autoSubmitButton.type = 'submit';
+    autoSubmitButton.hidden = true;
+    autoSubmitButton.dataset.autoSubmit = 'true';
+    autoSubmitButton.tabIndex = -1;
+    readingForm.form.append(autoSubmitButton);
+
+    let intervalId = 0;
+    let lastRenderedMinute = null;
+    let lastAutoSubmitAttempt = 0;
+
+    function readAttemptToken() {
+      try {
+        return String(JSON.parse(sessionStorage.getItem(submissionStorageKey) || '{}').attemptToken || '');
+      } catch {
+        return '';
+      }
+    }
+
+    function stopTimer() {
+      if (intervalId) window.clearInterval(intervalId);
+      intervalId = 0;
+    }
+
+    function submitExpiredReading(now) {
+      if (readingForm.form.hidden || readingForm.form.dataset.readingSubmitting === 'true') return;
+      if (now - lastAutoSubmitAttempt < retryDelayMs) return;
+      lastAutoSubmitAttempt = now;
+      readingForm.form.dataset.readingTimeExpired = 'true';
+      readingForm.form.requestSubmit(autoSubmitButton);
+    }
+
+    function renderTimer() {
+      if (readingForm.form.hidden || !uiState.readingTimer.deadline) return;
+      const now = Date.now();
+      const remainingMs = Math.max(0, uiState.readingTimer.deadline - now);
+      const minutes = Math.ceil(remainingMs / 60_000);
+      if (minutes !== lastRenderedMinute) {
+        lastRenderedMinute = minutes;
+        clockValue.textContent = String(minutes);
+        clock.dataset.minutes = String(minutes);
+        clock.classList.toggle('is-warning', minutes <= 10 && minutes > 0);
+        clock.classList.toggle('is-expired', minutes === 0);
+        clock.setAttribute('aria-label', minutes > 0
+          ? 'Còn ' + minutes + ' trên 60 phút làm bài Reading'
+          : 'Đã hết 60 phút làm bài Reading; hệ thống đang tự nộp bài');
+      }
+      if (remainingMs === 0) submitExpiredReading(now);
+    }
+
+    function startTimer() {
+      if (readingForm.form.hidden || intervalId) return;
+      const attemptToken = readAttemptToken();
+      if (attemptToken && uiState.readingTimer.attemptToken !== attemptToken) {
+        uiState.readingTimer.deadline = 0;
+        uiState.readingTimer.attemptToken = attemptToken;
+      }
+      if (!uiState.readingTimer.deadline) {
+        uiState.readingTimer.deadline = Date.now() + durationMs;
+        saveUiState();
+      }
+      renderTimer();
+      intervalId = window.setInterval(renderTimer, 1000);
+    }
+
+    const visibilityObserver = new MutationObserver(() => {
+      if (readingForm.form.hidden) stopTimer();
+      else startTimer();
+    });
+    visibilityObserver.observe(readingForm.form, { attributes: true, attributeFilter: ['hidden'] });
+    readingForm.form.addEventListener('term-test:reading-submitted', stopTimer);
+    window.addEventListener('pagehide', () => {
+      stopTimer();
+      visibilityObserver.disconnect();
+    });
+    startTimer();
+  }
+
   document.body.classList.add('cbt-mode', 'cbt-semantic-mode');
   compactIdentityPanel();
   const topbarTitle = document.querySelector('.topbar h1');
@@ -993,7 +1101,10 @@
   if (readingInstructions) replaceInstructions(readingInstructions, contentConfig.reading.instructions);
 
   const listeningForm = enhanceForm('listening');
-  enhanceForm('reading');
-  if (!isDemo) setupBufferedAudio(listeningForm);
+  const readingForm = enhanceForm('reading');
+  if (!isDemo) {
+    setupBufferedAudio(listeningForm);
+    setupReadingTimer(readingForm);
+  }
   window.addEventListener('pagehide', saveUiState);
 }());

@@ -278,6 +278,7 @@
       instructions: [
         'Bài đọc và câu hỏi đều là HTML; bạn có thể bôi chọn chữ và cuộn từng khung riêng.',
         'Nhập hoặc chọn đáp án ngay trong từng câu hỏi ở khung bên phải.',
+        'Đồng hồ 60 phút bắt đầu ngay khi mở Reading; hết giờ hệ thống tự nộp bài.',
         'Dùng thanh số câu phía dưới để chuyển nhanh hoặc đánh dấu câu cần xem lại.'
       ],
       sections: [

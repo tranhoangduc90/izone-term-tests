@@ -605,12 +605,18 @@
 
   elements.readingView.addEventListener('submit', async event => {
     event.preventDefault();
+    const automatic = event.submitter?.dataset.autoSubmit === 'true'
+      || elements.readingView.dataset.readingTimeExpired === 'true';
     const answers = collectAnswers(elements.readingQuestions);
     const answered = Object.values(answers).filter(Boolean).length;
-    if (!confirmIncomplete(answered, 'Reading')) return;
+    if (!automatic && !confirmIncomplete(answered, 'Reading')) return;
+    elements.readingView.dataset.readingSubmitting = 'true';
     state.drafts.reading = answers;
     saveSession();
     setBusy(elements.submitReading, true, 'Đang lưu và chấm...', 'Nộp bài Reading');
+    if (automatic) {
+      showNotice('Đã hết 60 phút. Hệ thống đang tự thu và chấm bài Reading...');
+    }
     try {
       const response = await apiRequest(`/api/term-tests/${testConfig.slug}/reading`, {
         method: 'POST',
@@ -621,9 +627,14 @@
       saveSession();
       showNotice(portalNotice(response.portalSyncStatus, true), response.portalSyncStatus === 'pending' ? '' : 'success');
       setStage('result-ready');
+      elements.readingView.dispatchEvent(new CustomEvent('term-test:reading-submitted'));
+      if (automatic) await loadResult(elements.viewResult);
     } catch (error) {
-      showNotice(`Không thể lưu Reading: ${error.message}`, 'error');
+      showNotice(automatic
+        ? `Hết giờ nhưng chưa thể nộp Reading: ${error.message}. Hệ thống sẽ tự thử lại; không làm mới trang.`
+        : `Không thể lưu Reading: ${error.message}`, 'error');
     } finally {
+      delete elements.readingView.dataset.readingSubmitting;
       setBusy(elements.submitReading, false, 'Đang lưu và chấm...', 'Nộp bài Reading');
     }
   });
