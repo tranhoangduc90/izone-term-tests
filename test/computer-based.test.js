@@ -80,7 +80,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v9/);
+  assert.match(html, /cbt-v10/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -108,6 +108,14 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /region\.hidden = !visible/);
   assert.match(source, /region\.inert = !visible/);
   assert.match(source, /URL\.createObjectURL\(blob\)/);
+  assert.match(source, /setupReadingTimer/);
+  assert.match(source, /60 \* 60 \* 1000/);
+  assert.match(source, /readingTimer\.deadline/);
+  assert.match(source, /readingTimer\.attemptToken/);
+  assert.match(source, /submissionStorageKey/);
+  assert.match(source, /Math\.ceil\(remainingMs \/ 60_000\)/);
+  assert.match(source, /minutes <= 10 && minutes > 0/);
+  assert.match(source, /requestSubmit\(autoSubmitButton\)/);
 
   const startHandlerIndex = source.indexOf("startButton.addEventListener('click'");
   const officialPlayIndex = source.indexOf('await audio.play()', startHandlerIndex);
@@ -128,4 +136,9 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /renderSkillPerformance\('Listening'/);
   assert.match(source, /renderSkillPerformance\('Reading'/);
   assert.match(source, /splitSkillPerformance/);
+  assert.match(source, /event\.submitter\?\.dataset\.autoSubmit/);
+  assert.match(source, /readingSubmitting/);
+  assert.match(source, /!automatic && !confirmIncomplete/);
+  assert.match(source, /term-test:reading-submitted/);
+  assert.match(source, /if \(automatic\) await loadResult\(elements\.viewResult\)/);
 });
