@@ -89,6 +89,13 @@
     return fields;
   }
 
+  function hideBackingField(field) {
+    field.classList.add('cbt-visually-hidden-field');
+    field.hidden = true;
+    field.setAttribute('aria-hidden', 'true');
+    field.tabIndex = -1;
+  }
+
   function syncRadioField(field, card) {
     const groupName = 'cbt-choice-' + card.dataset.questionNumber + '-' + Math.random().toString(36).slice(2, 8);
     const radios = [...card.querySelectorAll('[data-choice-value]')].map(label => {
@@ -107,22 +114,124 @@
       label.prepend(radio);
       return radio;
     });
-    field.classList.add('cbt-visually-hidden-field');
-    field.hidden = true;
-    field.setAttribute('aria-hidden', 'true');
-    field.tabIndex = -1;
+    hideBackingField(field);
     field.addEventListener('input', () => {
       radios.forEach(radio => { radio.checked = field.value === radio.value; });
     });
     return radios;
   }
 
+  function syncMultiFields(card, fields) {
+    const limit = fields.length;
+    const status = document.createElement('p');
+    status.className = 'cbt-multi-status';
+    status.setAttribute('role', 'status');
+
+    function readValues() {
+      return [...new Set(fields.map(field => field.value).filter(Boolean))].slice(0, limit);
+    }
+
+    function writeValues(values) {
+      const changed = [];
+      fields.forEach((field, index) => {
+        const nextValue = values[index] || '';
+        if (field.value === nextValue) return;
+        field.value = nextValue;
+        changed.push(field);
+      });
+      changed.forEach(field => {
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    const checkboxes = [...card.querySelectorAll('[data-choice-value]')].map(label => {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = label.dataset.choiceValue;
+      checkbox.setAttribute('aria-label', 'Câu ' + fields.map(field => field.dataset.number).join('–') + ', đáp án ' + checkbox.value);
+      label.prepend(checkbox);
+      return checkbox;
+    });
+
+    function renderSelection(message = '') {
+      const values = readValues();
+      checkboxes.forEach(checkbox => { checkbox.checked = values.includes(checkbox.value); });
+      card.classList.toggle('is-complete', values.length === limit);
+      card.classList.toggle('is-limit', Boolean(message));
+      status.textContent = message || 'Đã chọn ' + values.length + '/' + limit + '. Có thể bỏ tick để đổi đáp án.';
+    }
+
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        let values = readValues();
+        if (checkbox.checked) {
+          if (values.length >= limit) {
+            checkbox.checked = false;
+            renderSelection('Tối đa ' + limit + ' phương án. Hãy bỏ tick một phương án trước khi chọn đáp án khác.');
+            return;
+          }
+          values.push(checkbox.value);
+        } else {
+          values = values.filter(value => value !== checkbox.value);
+        }
+        writeValues(values);
+        renderSelection();
+      });
+    });
+    fields.forEach(field => {
+      hideBackingField(field);
+      field.addEventListener('input', () => renderSelection());
+    });
+    card.append(status);
+    renderSelection();
+    return checkboxes;
+  }
+
   // Dữ liệu vào: HTML đề, 40 ô do shared/app.js tạo và trạng thái đánh dấu.
-  // Việc chính: chuyển từng ô thật vào đúng data-answer-slot và nối radio HTML với select gốc.
+  // Việc chính: chuyển từng ô thật vào đúng data-answer-slot rồi nối radio hoặc checkbox HTML với select gốc.
   // Kết quả: giao diện đẹp hơn nhưng dữ liệu vẫn đi qua đúng field, draft và API cũ.
   // Khi thiếu slot: câu đó được giữ trong bản đồ để test DOM phát hiện trước khi phát hành.
   function attachAnswerFields(skill, sectionNode, sectionIndex, fields, items) {
+    const processedSlots = new Set();
+    sectionNode.querySelectorAll('[data-control="multi"]').forEach(card => {
+      const numbers = (card.dataset.questionNumbers || '').split(',').filter(Boolean);
+      const multiFields = numbers.map(number => fields.get(number)).filter(Boolean);
+      if (multiFields.length !== numbers.length) return;
+
+      numbers.forEach((number, index) => {
+        const slot = card.querySelector('[data-answer-slot="' + number + '"]');
+        const field = multiFields[index];
+        if (!slot) return;
+        field.classList.add('cbt-answer-select');
+        slot.append(field);
+        processedSlots.add(slot);
+      });
+      const checkboxes = syncMultiFields(card, multiFields);
+      const flags = document.createElement('span');
+      flags.className = 'cbt-multi-flags';
+      card.querySelector('.cbt-question-heading')?.append(flags);
+
+      multiFields.forEach(field => {
+        const number = String(field.dataset.number);
+        const flagButton = makeButton('cbt-flag-button cbt-multi-flag', '⚑' + number);
+        flagButton.setAttribute('aria-label', 'Đánh dấu câu ' + number);
+        flagButton.title = 'Đánh dấu câu ' + number + ' để xem lại';
+        flags.append(flagButton);
+        items.push({
+          skill,
+          number,
+          field,
+          target: card,
+          flagButton,
+          radios: checkboxes,
+          sectionIndex
+        });
+      });
+    });
+
     sectionNode.querySelectorAll('[data-answer-slot]').forEach(slot => {
+      if (processedSlots.has(slot)) return;
       const number = String(slot.dataset.answerSlot);
       const field = fields.get(number);
       if (!field) return;
@@ -180,6 +289,26 @@
     return { toolbar, partNav, smaller, larger, sizeValue, sectionConfig };
   }
 
+  function createSectionPager(skill, sectionIndex, sectionCount, onActivate) {
+    const noun = skill === 'listening' ? 'Part' : 'Passage';
+    const pager = document.createElement('nav');
+    pager.className = 'cbt-section-pager';
+    pager.setAttribute('aria-label', 'Chuyển ' + noun);
+
+    const previous = makeButton('cbt-section-page-button is-previous', '← Previous ' + noun);
+    previous.disabled = sectionIndex === 0;
+    previous.addEventListener('click', () => onActivate(sectionIndex - 1));
+
+    const position = document.createElement('span');
+    position.textContent = noun + ' ' + (sectionIndex + 1) + ' / ' + sectionCount;
+
+    const next = makeButton('cbt-section-page-button is-next', 'Next ' + noun + ' →');
+    next.disabled = sectionIndex === sectionCount - 1;
+    next.addEventListener('click', () => onActivate(sectionIndex + 1));
+    pager.append(previous, position, next);
+    return pager;
+  }
+
   function createSemanticPane(skill, sectionConfig, heading, fields) {
     const pane = document.createElement('section');
     pane.className = 'cbt-semantic-pane';
@@ -194,6 +323,7 @@
 
     sectionConfig.sections.forEach((section, sectionIndex) => {
       let sectionNode;
+      let pagerHost;
       if (skill === 'reading') {
         sectionNode = document.createElement('section');
         sectionNode.className = 'cbt-reading-section';
@@ -216,11 +346,14 @@
         questions.className = 'cbt-reading-questions';
         questions.innerHTML = section.questionsHtml;
         sectionNode.append(passage, questions);
+        pagerHost = questions;
       } else {
         sectionNode = document.createElement('article');
         sectionNode.className = 'cbt-listening-section';
         sectionNode.innerHTML = section.html;
+        pagerHost = sectionNode;
       }
+      pagerHost.append(createSectionPager(skill, sectionIndex, sectionConfig.sections.length, activateSection));
       sectionNode.dataset.sectionIndex = String(sectionIndex);
       sectionNode.hidden = true;
       viewport.append(sectionNode);
@@ -290,9 +423,10 @@
       const answered = Boolean(item.field.value.trim());
       const flagged = Boolean(uiState.flags[skill][item.number]);
       const active = activeNumber === item.number;
-      item.target.classList.toggle('is-answered', answered);
-      item.target.classList.toggle('is-flagged', flagged);
-      item.target.classList.toggle('is-active', active);
+      const targetItems = source.items.filter(candidate => candidate.target === item.target);
+      item.target.classList.toggle('is-answered', targetItems.some(candidate => Boolean(candidate.field.value.trim())));
+      item.target.classList.toggle('is-flagged', targetItems.some(candidate => Boolean(uiState.flags[skill][candidate.number])));
+      item.target.classList.toggle('is-active', targetItems.some(candidate => activeNumber === candidate.number));
       item.flagButton.classList.toggle('is-flagged', flagged);
       const button = nav.querySelector('[data-nav-number="' + item.number + '"]');
       if (button) {
