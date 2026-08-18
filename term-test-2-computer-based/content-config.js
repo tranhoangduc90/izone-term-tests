@@ -52,6 +52,23 @@
     </article>`;
   }
 
+  function multiChoice(numbers, prompt, options) {
+    return `<article class="cbt-question-card cbt-multi-choice" data-control="multi" data-question-numbers="${numbers.join(',')}">
+      <div class="cbt-question-heading">
+        <span class="cbt-question-number">${numbers.join('–')}</span>
+        <p>${prompt}</p>
+      </div>
+      <p class="cbt-multi-instruction">Tick up to TWO options. Untick an option before choosing another one.</p>
+      <div class="cbt-choice-list cbt-multi-choice-list">
+        ${options.map(([value, text]) => `<label class="cbt-choice" data-choice-value="${value}">
+          <span class="cbt-choice-letter">${value}</span>
+          <span>${text}</span>
+        </label>`).join('')}
+      </div>
+      ${numbers.map(number => `<span class="cbt-native-slot" data-answer-slot="${number}"></span>`).join('')}
+    </article>`;
+  }
+
   const content = {
     variant: 'semantic-html',
     baseTestSlug: 'term-test-2',
@@ -207,7 +224,7 @@
                 ['B', 'The advantages they have only lead to a slightly higher level of achievement.'],
                 ['C', 'The extra parental attention they receive at a young age makes little difference.']
               ])}
-              ${doubleChoice([29, 30], 'Which TWO experiences of sibling rivalry do the speakers agree has been valuable for them?', [
+              ${multiChoice([29, 30], 'Which TWO experiences of sibling rivalry do the speakers agree has been valuable for them?', [
                 ['A', 'learning to share'],
                 ['B', 'learning to stand up for oneself'],
                 ['C', 'learning to be a good loser'],

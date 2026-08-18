@@ -31,6 +31,11 @@ test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả l
   assert.equal(new Set(listeningSlots).size, 40, 'Listening có câu bị lặp');
   assert.equal(new Set(readingSlots).size, 40, 'Reading có câu bị lặp');
 
+  const listeningPart3 = config.listening.sections[2].html;
+  assert.match(listeningPart3, /data-control="multi"/);
+  assert.match(listeningPart3, /data-question-numbers="29,30"/);
+  assert.equal([...listeningPart3.matchAll(/data-choice-value="[A-E]"/g)].length, 11, 'Part 3 phải có 6 lựa chọn radio và 5 lựa chọn checkbox');
+
   for (const section of Array.from(config.reading.sections)) {
     assert.match(section.passageHtml, /<p>|cbt-lettered-paragraph/);
     assert.match(section.questionsHtml, /data-answer-slot=/);
@@ -69,6 +74,10 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.equal(/\.png|createInlineAnswer|cbt-page-frame/.test(source), false);
   assert.match(source, /shared\/app\.js/);
   assert.match(source, /attachAnswerFields/);
+  assert.match(source, /syncMultiFields/);
+  assert.match(source, /createSectionPager/);
+  assert.match(source, /Previous ['"] \+ noun/);
+  assert.match(source, /Next ['"] \+ noun/);
   assert.match(source, /grid\.replaceChildren\(source\.pane\)/);
   assert.match(source, /field\.dispatchEvent\(new Event\('input'/);
 });
