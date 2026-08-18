@@ -3,7 +3,9 @@
 
   const contentConfig = window.TERM_TEST_CONTENT;
   const testConfig = window.TERM_TEST_CONFIG;
-  const classCode = (new URLSearchParams(window.location.search).get('class') || '').trim().toUpperCase();
+  const query = new URLSearchParams(window.location.search);
+  const classCode = (query.get('class') || '').trim().toUpperCase();
+  const isDemo = ['complete', 'listening-only'].includes(query.get('demo'));
 
   if (!contentConfig || !testConfig || contentConfig.baseTestSlug !== testConfig.slug) return;
 
@@ -541,27 +543,32 @@
     return { form, source };
   }
 
-  // Dữ liệu vào: file audio gốc và thời điểm đã nghe trong sessionStorage.
-  // Việc chính: phát một chiều, hiển thị tiến độ và lưu vị trí mỗi năm giây.
-  // Kết quả: tải lại trang có thể tiếp tục đúng vị trí; học viên không có thanh tua.
-  // Khi lỗi: hiện thông báo ngay trên trình phát, không làm mất bài đang nhập.
-  function setupAudio(listeningForm) {
+  // Dữ liệu vào: file audio gốc, các ô Listening và thời điểm đã nghe trong sessionStorage.
+  // Việc chính: khóa bài, tải đủ file vào Blob trong máy rồi mới mở ô trả lời và phát một chiều.
+  // Kết quả: mạng chập chờn sau lúc mở khóa không làm audio đang thi bị tải dở giữa chừng.
+  // Khi lỗi: giữ bài bị khóa, giải thích rõ và cho học viên tải lại mà không mất draft.
+  function setupBufferedAudio(listeningForm) {
     if (!listeningForm) return;
     const card = document.createElement('section');
     card.className = 'cbt-audio-card';
-    card.setAttribute('aria-label', 'Trình phát audio Listening');
+    card.setAttribute('aria-label', 'Trình tải và phát audio Listening');
+
     const copy = document.createElement('div');
     copy.className = 'cbt-audio-copy';
     const label = document.createElement('strong');
     label.textContent = contentConfig.audio.label;
     const status = document.createElement('span');
     status.className = 'cbt-audio-status';
-    status.textContent = 'Đang chuẩn bị audio...';
+    status.setAttribute('role', 'status');
+    status.textContent = 'Đang tải đủ audio trước khi mở bài...';
     copy.append(label, status);
 
     const controls = document.createElement('div');
     controls.className = 'cbt-audio-controls';
     const playButton = makeButton('cbt-audio-play', uiState.audio.started ? 'Tiếp tục audio' : 'Bắt đầu phát audio');
+    playButton.disabled = true;
+    const retryButton = makeButton('cbt-audio-retry', 'Tải lại audio');
+    retryButton.hidden = true;
     const progress = document.createElement('progress');
     progress.className = 'cbt-audio-progress';
     progress.max = 1;
@@ -576,18 +583,52 @@
     volumeInput.step = '0.1';
     volumeInput.value = String(uiState.audio.volume);
     volume.append(volumeInput);
-    controls.append(playButton, progress, volume);
+    controls.append(playButton, retryButton, progress, volume);
     card.append(copy, controls);
     listeningForm.source.toolbar.append(card);
 
     const audio = document.createElement('audio');
-    audio.src = contentConfig.audio.src;
-    audio.preload = 'metadata';
+    audio.preload = 'auto';
     audio.volume = uiState.audio.volume;
     audio.hidden = true;
     card.append(audio);
+
     let lastSavedSecond = Math.floor(uiState.audio.time);
     let restored = false;
+    let ready = false;
+    let downloadRun = 0;
+    let downloadController = null;
+    let objectUrl = '';
+    const gatedControls = [...listeningForm.form.querySelectorAll('[data-number], .cbt-choice input, button[type="submit"]')];
+    const initialDisabled = new Map(gatedControls.map(control => [control, control.disabled]));
+
+    function lockListening(locked) {
+      listeningForm.form.classList.toggle('cbt-audio-loading', locked);
+      listeningForm.form.setAttribute('aria-busy', locked ? 'true' : 'false');
+      for (const control of gatedControls) {
+        control.disabled = locked ? true : Boolean(initialDisabled.get(control));
+      }
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function revokeAudioUrl() {
+      if (!objectUrl) return;
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = '';
+    }
+
+    function failDownload(message) {
+      ready = false;
+      lockListening(true);
+      playButton.disabled = true;
+      retryButton.hidden = false;
+      progress.removeAttribute('value');
+      status.textContent = message;
+    }
 
     function restoreAudioTime() {
       if (restored || !Number.isFinite(audio.duration)) return;
@@ -597,16 +638,22 @@
     }
 
     function updateAudioStatus(prefix) {
+      if (!ready) return;
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
       const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
       progress.max = duration || 1;
       progress.value = current;
-      status.textContent = prefix + ' · ' + formatTime(current) + ' / ' + (duration ? formatTime(duration) : contentConfig.audio.durationLabel);
+      status.textContent = prefix + ' · ' + formatTime(current) + ' / '
+        + (duration ? formatTime(duration) : contentConfig.audio.durationLabel);
     }
 
     audio.addEventListener('loadedmetadata', () => {
+      ready = true;
       restoreAudioTime();
-      updateAudioStatus(uiState.audio.started ? 'Sẵn sàng tiếp tục' : 'Sẵn sàng');
+      lockListening(false);
+      playButton.disabled = false;
+      retryButton.hidden = true;
+      updateAudioStatus(uiState.audio.started ? 'Đã tải đủ · sẵn sàng tiếp tục' : 'Đã tải đủ · sẵn sàng làm bài');
     });
     audio.addEventListener('timeupdate', () => {
       updateAudioStatus(audio.paused ? 'Đã dừng' : 'Đang phát');
@@ -625,11 +672,62 @@
       saveUiState();
     });
     audio.addEventListener('error', () => {
-      status.textContent = 'Không tải được audio. Hãy kiểm tra mạng rồi tải lại trang.';
-      playButton.disabled = false;
+      if (!ready) {
+        failDownload('File audio tải xong nhưng trình duyệt không đọc được. Hãy nhấn “Tải lại audio”.');
+      } else {
+        status.textContent = 'Không thể phát audio. Hãy nhấn “Tải lại audio”.';
+        retryButton.hidden = false;
+      }
     });
 
+    async function downloadFullAudio() {
+      downloadRun += 1;
+      const currentRun = downloadRun;
+      downloadController?.abort();
+      downloadController = new AbortController();
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      revokeAudioUrl();
+      ready = false;
+      restored = false;
+      lockListening(true);
+      playButton.disabled = true;
+      retryButton.hidden = true;
+      progress.max = 1;
+      progress.value = 0;
+      status.textContent = 'Đang tải đủ audio trước khi mở bài...';
+      try {
+        const loader = window.TERM_TEST_AUDIO_LOADER?.downloadAudio;
+        if (!loader) throw new Error('AUDIO_LOADER_MISSING');
+        const blob = await loader(contentConfig.audio.src, {
+          signal: downloadController.signal,
+          onProgress: ({ loaded, total, complete }) => {
+            if (currentRun !== downloadRun) return;
+            if (total > 0) {
+              progress.max = total;
+              progress.value = loaded;
+              const percent = Math.min(100, Math.round(loaded * 100 / total));
+              status.textContent = (complete ? 'Đã tải đủ' : 'Đang tải audio')
+                + ' · ' + percent + '% · ' + formatBytes(loaded) + ' / ' + formatBytes(total);
+            } else {
+              progress.removeAttribute('value');
+              status.textContent = 'Đang tải audio · ' + formatBytes(loaded);
+            }
+          }
+        });
+        if (currentRun !== downloadRun) return;
+        objectUrl = URL.createObjectURL(blob);
+        audio.src = objectUrl;
+        audio.load();
+      } catch (error) {
+        if (currentRun !== downloadRun || error?.name === 'AbortError') return;
+        failDownload('Chưa tải đủ audio nên bài vẫn đang khóa. Kiểm tra mạng rồi nhấn “Tải lại audio”.');
+      }
+    }
+
     playButton.addEventListener('click', async () => {
+      if (!ready) return;
       restoreAudioTime();
       try {
         await audio.play();
@@ -643,6 +741,7 @@
         playButton.disabled = false;
       }
     });
+    retryButton.addEventListener('click', downloadFullAudio);
     volumeInput.addEventListener('input', () => {
       const nextVolume = Number(volumeInput.value);
       audio.volume = nextVolume;
@@ -657,7 +756,12 @@
     window.addEventListener('pagehide', () => {
       uiState.audio.time = audio.currentTime;
       saveUiState();
+      downloadController?.abort();
+      revokeAudioUrl();
     });
+
+    lockListening(true);
+    downloadFullAudio();
   }
 
   document.body.classList.add('cbt-mode', 'cbt-semantic-mode');
@@ -679,6 +783,6 @@
 
   const listeningForm = enhanceForm('listening');
   enhanceForm('reading');
-  setupAudio(listeningForm);
+  if (!isDemo) setupBufferedAudio(listeningForm);
   window.addEventListener('pagehide', saveUiState);
 }());

@@ -71,14 +71,16 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   const configIndex = html.indexOf('../term-test-2/test-config.js');
   const contentIndex = html.indexOf('content-config.js');
   const sharedAppIndex = html.indexOf('../shared/app.js');
+  const audioLoaderIndex = html.indexOf('audio-loader.js');
   const enhanceIndex = html.indexOf('enhance.js');
   assert.ok(configIndex >= 0);
   assert.ok(configIndex < contentIndex);
   assert.ok(contentIndex < sharedAppIndex);
-  assert.ok(sharedAppIndex < enhanceIndex);
-  assert.match(html, /media-src 'self'/);
+  assert.ok(sharedAppIndex < audioLoaderIndex);
+  assert.ok(audioLoaderIndex < enhanceIndex);
+  assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v6/);
+  assert.match(html, /cbt-v7/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -97,4 +99,18 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /Next ['"] \+ noun/);
   assert.match(source, /grid\.replaceChildren\(source\.pane\)/);
   assert.match(source, /field\.dispatchEvent\(new Event\('input'/);
+  assert.match(source, /setupBufferedAudio/);
+  assert.match(source, /TERM_TEST_AUDIO_LOADER/);
+  assert.match(source, /lockListening\(true\)/);
+  assert.match(source, /URL\.createObjectURL\(blob\)/);
+});
+
+test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo không gọi dữ liệu thật', async () => {
+  const source = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
+  assert.match(source, /viewListeningResult/);
+  assert.match(source, /continueReadingFromResult/);
+  assert.match(source, /Reading chưa bị tính là 0 điểm/);
+  assert.match(source, /\['complete', 'listening-only'\]/);
+  assert.match(source, /result\.reading\)/);
+  assert.match(source, /portalSyncStatus/);
 });

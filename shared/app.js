@@ -4,7 +4,13 @@
   const testConfig = window.TERM_TEST_CONFIG;
   const appConfig = window.TERM_TEST_APP_CONFIG;
   const root = document.getElementById('app');
-  const classCode = (new URLSearchParams(window.location.search).get('class') || '').trim().toUpperCase();
+  const query = new URLSearchParams(window.location.search);
+  const classCode = (query.get('class') || '').trim().toUpperCase();
+  const requestedDemo = query.get('demo') || '';
+  const demoMode = window.TERM_TEST_CONTENT?.variant === 'semantic-html'
+    && ['complete', 'listening-only'].includes(requestedDemo)
+    ? requestedDemo
+    : '';
 
   if (!testConfig || !appConfig || !root) return;
 
@@ -92,10 +98,13 @@
 
       <section class="panel transition-card" id="listeningSavedView" hidden>
         <div class="transition-icon">✓</div>
-        <p class="eyebrow">Đã lưu bài Listening</p>
-        <h2>Bạn đã hoàn thành phần đầu tiên</h2>
-        <p>Hệ thống đã ghi bài Listening. Khi sẵn sàng, nhấn nút dưới đây để mở answer sheet Reading.</p>
-        <button class="button button-primary" id="startReading" type="button">Bắt đầu bài Reading</button>
+        <p class="eyebrow">Đã chấm bài Listening</p>
+        <h2>Điểm Listening đã được ghi độc lập</h2>
+        <p>Reading chưa cần nộp ngay. Bạn có thể xem đầy đủ điểm và phân tích Listening, hoặc tiếp tục làm Reading.</p>
+        <div class="form-actions transition-actions">
+          <button class="button button-secondary" id="viewListeningResult" type="button">Xem kết quả Listening</button>
+          <button class="button button-primary" id="startReading" type="button">Bắt đầu bài Reading</button>
+        </div>
       </section>
 
       <form class="panel test-panel" id="readingView" hidden>
@@ -130,6 +139,10 @@
           </div>
         </div>
         <div class="summary-grid" id="summaryGrid"></div>
+        <p class="result-status" id="resultStatus"></p>
+        <div class="form-actions result-actions">
+          <button class="button button-primary" id="continueReadingFromResult" type="button" hidden>Tiếp tục làm Reading</button>
+        </div>
         <div id="questionDetails"></div>
         <div class="analysis-grid">
           <article class="analysis-card best">
@@ -154,10 +167,10 @@
   const elements = Object.fromEntries([
     'notice', 'loadingView', 'identityView', 'identityTitle', 'classLabel', 'studentSelect',
     'listeningView', 'listeningTitle', 'listeningInstructions', 'listeningQuestions', 'listeningCount', 'submitListening',
-    'listeningSavedView', 'startReading', 'readingView', 'readingTitle', 'readingInstructions',
+    'listeningSavedView', 'viewListeningResult', 'startReading', 'readingView', 'readingTitle', 'readingInstructions',
     'readingQuestions', 'readingCount', 'readingStudentName', 'submitReading', 'resultReadyView',
     'viewResult', 'resultView', 'resultStudentName', 'resultMeta', 'summaryGrid', 'bestList',
-    'improveList', 'performanceBody', 'questionDetails'
+    'improveList', 'performanceBody', 'questionDetails', 'resultStatus', 'continueReadingFromResult'
   ].map(id => [id, document.getElementById(id)]));
 
   const progressSteps = [...document.querySelectorAll('[data-progress]')];
@@ -412,15 +425,20 @@
 
   function renderResult(payload) {
     const result = payload.result;
+    const hasReading = Boolean(result.reading);
     state.result = payload;
     elements.resultStudentName.textContent = payload.studentName;
     elements.resultMeta.textContent = `${payload.className} · ${result.testTitle || testConfig.title}`;
     const averageBand = getAverageBand(result);
     elements.summaryGrid.replaceChildren(
       addSummaryCard('Listening', `${result.listening.correct}/${result.listening.total} · Band ${result.listening.band}`),
-      addSummaryCard('Reading', `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}`),
-      addSummaryCard('Tổng điểm', averageBand === null ? 'Chưa đủ dữ liệu' : `Band ${averageBand.toFixed(2)}`)
+      addSummaryCard('Reading', hasReading ? `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}` : 'Chưa nộp'),
+      addSummaryCard('Tổng điểm', averageBand === null ? 'Chưa đủ hai kỹ năng' : `Band ${averageBand.toFixed(2)}`)
     );
+    elements.resultStatus.textContent = hasReading
+      ? 'Bạn đã hoàn thành cả Listening và Reading. Phân tích dưới đây tổng hợp cả hai kỹ năng.'
+      : 'Listening đã được chấm và lưu riêng. Phân tích dưới đây chỉ dùng bài Listening; Reading chưa bị tính là 0 điểm.';
+    elements.continueReadingFromResult.hidden = hasReading || Boolean(demoMode);
     renderAnalysisList(elements.bestList, result.performance.best, 'Chưa có dạng nổi trội riêng.');
     renderAnalysisList(elements.improveList, result.performance.needsImprovement, 'Các dạng đang có kết quả ngang nhau.');
     elements.performanceBody.replaceChildren(...(result.typeStats || []).map(item => {
@@ -432,10 +450,38 @@
       }
       return row;
     }));
-    elements.questionDetails.replaceChildren(
-      renderDetailBlock('Listening', result.listening.details),
-      renderDetailBlock('Reading', result.reading.details)
-    );
+    const detailBlocks = [renderDetailBlock('Listening', result.listening.details)];
+    if (hasReading) detailBlocks.push(renderDetailBlock('Reading', result.reading.details));
+    elements.questionDetails.replaceChildren(...detailBlocks);
+  }
+
+  function portalNotice(status, completed) {
+    if (status === 'pending') {
+      return completed
+        ? 'Bài đã được chấm. Portal đang bận; hệ thống sẽ tự thử ghi lại khi bạn mở kết quả.'
+        : 'Listening đã được chấm. Portal đang bận; hệ thống sẽ tự thử ghi lại khi bạn mở kết quả.';
+    }
+    return completed
+      ? 'Cả Listening và Reading đã được chấm và ghi vào Portal.'
+      : 'Listening đã được chấm, phân tích và ghi vào Portal.';
+  }
+
+  async function loadResult(button) {
+    setBusy(button, true, 'Đang tải kết quả...', button.dataset.normalText || button.textContent);
+    try {
+      const payload = await apiRequest('/api/term-tests/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptToken: state.attemptToken })
+      });
+      renderResult(payload);
+      showNotice(portalNotice(payload.portalSyncStatus, payload.completed), payload.portalSyncStatus === 'pending' ? '' : 'success');
+      setStage('result');
+    } catch (error) {
+      showNotice(`Không thể tải kết quả: ${error.message}`, 'error');
+    } finally {
+      setBusy(button, false, 'Đang tải kết quả...', button.dataset.normalText || 'Xem kết quả');
+    }
   }
 
   elements.studentSelect.addEventListener('change', () => {
@@ -472,9 +518,10 @@
       });
       state.attemptToken = response.attemptToken;
       state.studentName = response.studentName;
+      state.completed = Boolean(response.completed);
       saveSession();
-      showNotice('Bài Listening đã được lưu thành công.', 'success');
-      setStage('listening-saved');
+      showNotice(portalNotice(response.portalSyncStatus, state.completed), response.portalSyncStatus === 'pending' ? '' : 'success');
+      setStage(state.completed ? 'result-ready' : 'listening-saved');
     } catch (error) {
       showNotice(`Không thể lưu Listening: ${error.message}`, 'error');
     } finally {
@@ -488,6 +535,12 @@
     setStage('reading');
   });
 
+  elements.continueReadingFromResult.addEventListener('click', () => {
+    elements.readingStudentName.textContent = state.studentName;
+    showNotice('Điểm Listening đã được lưu. Bạn đang tiếp tục phần Reading.', 'success');
+    setStage('reading');
+  });
+
   elements.readingView.addEventListener('submit', async event => {
     event.preventDefault();
     const answers = collectAnswers(elements.readingQuestions);
@@ -497,14 +550,14 @@
     saveSession();
     setBusy(elements.submitReading, true, 'Đang lưu và chấm...', 'Nộp bài Reading');
     try {
-      await apiRequest(`/api/term-tests/${testConfig.slug}/reading`, {
+      const response = await apiRequest(`/api/term-tests/${testConfig.slug}/reading`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attemptToken: state.attemptToken, answers })
       });
       state.completed = true;
       saveSession();
-      showNotice('Bài Reading đã được lưu và hệ thống đã chấm xong.', 'success');
+      showNotice(portalNotice(response.portalSyncStatus, true), response.portalSyncStatus === 'pending' ? '' : 'success');
       setStage('result-ready');
     } catch (error) {
       showNotice(`Không thể lưu Reading: ${error.message}`, 'error');
@@ -513,23 +566,72 @@
     }
   });
 
-  elements.viewResult.addEventListener('click', async () => {
-    setBusy(elements.viewResult, true, 'Đang tải kết quả...', 'Xem kết quả');
-    try {
-      const payload = await apiRequest('/api/term-tests/result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attemptToken: state.attemptToken })
-      });
-      renderResult(payload);
-      showNotice('Đã tải kết quả và phân tích cá nhân.', 'success');
-      setStage('result');
-    } catch (error) {
-      showNotice(`Không thể tải kết quả: ${error.message}`, 'error');
-    } finally {
-      setBusy(elements.viewResult, false, 'Đang tải kết quả...', 'Xem kết quả');
+  elements.viewListeningResult.dataset.normalText = 'Xem kết quả Listening';
+  elements.viewResult.dataset.normalText = 'Xem kết quả';
+  elements.viewListeningResult.addEventListener('click', () => loadResult(elements.viewListeningResult));
+  elements.viewResult.addEventListener('click', () => loadResult(elements.viewResult));
+
+  function makeDemoSection(skill, correct, band) {
+    const types = skill === 'Listening'
+      ? ['Form completion', 'Multiple choice', 'Map labelling']
+      : ['True / False / Not Given', 'Matching headings', 'Multiple choice'];
+    return {
+      correct,
+      total: 40,
+      answered: 40,
+      band,
+      details: Array.from({ length: 40 }, (_, index) => ({
+        number: index + 1,
+        studentAnswer: index < correct ? 'Đáp án mẫu' : 'Phương án khác',
+        correctAnswer: 'Đáp án minh họa',
+        result: index < correct ? 'correct' : 'incorrect'
+      })),
+      typeStats: types.map((type, index) => {
+        const total = index === 2 ? 14 : 13;
+        const typeCorrect = Math.max(0, Math.min(total, Math.round(correct * total / 40) + (index === 0 ? 1 : index === 2 ? -1 : 0)));
+        return { type, correct: typeCorrect, total, percentage: typeCorrect / total };
+      })
+    };
+  }
+
+  function buildDemoPayload(mode) {
+    const listening = makeDemoSection('Listening', 31, 7);
+    const reading = mode === 'complete' ? makeDemoSection('Reading', 28, 6.5) : null;
+    const mergedStats = new Map();
+    for (const stat of [...listening.typeStats, ...(reading?.typeStats || [])]) {
+      const current = mergedStats.get(stat.type) || { type: stat.type, correct: 0, total: 0 };
+      current.correct += stat.correct;
+      current.total += stat.total;
+      mergedStats.set(stat.type, current);
     }
-  });
+    const typeStats = [...mergedStats.values()].map(stat => ({
+      ...stat,
+      percentage: stat.total ? stat.correct / stat.total : 0
+    }));
+    const sorted = [...typeStats].sort((left, right) => right.percentage - left.percentage);
+    return {
+      studentName: 'Học viên demo',
+      className: 'IC-DEMO',
+      completed: Boolean(reading),
+      portalSyncStatus: 'synced',
+      result: {
+        testTitle: 'Term Test 2 · Bản minh họa',
+        listening,
+        reading,
+        summary: {
+          totalCorrect: listening.correct + (reading?.correct || 0),
+          totalQuestions: listening.total + (reading?.total || 0),
+          averageBand: reading ? 6.75 : null
+        },
+        typeStats: sorted,
+        performance: {
+          best: sorted.slice(0, 1),
+          needsImprovement: sorted.slice(-1),
+          other: sorted.slice(1, -1)
+        }
+      }
+    };
+  }
 
   async function initialize() {
     elements.listeningTitle.textContent = testConfig.listening.title;
@@ -540,6 +642,15 @@
     renderQuestionControls(testConfig.reading, elements.readingQuestions, 'reading');
     updateAnswerCount('listening');
     updateAnswerCount('reading');
+
+    if (demoMode) {
+      renderResult(buildDemoPayload(demoMode));
+      showNotice(demoMode === 'complete'
+        ? 'Bản demo: học viên đã nộp cả Listening và Reading.'
+        : 'Bản demo: học viên mới nộp Listening; Reading chưa bị tính điểm.', 'success');
+      setStage('result');
+      return;
+    }
 
     if (!/^[A-Z0-9_-]{2,32}$/.test(classCode)) {
       elements.loadingView.hidden = true;
