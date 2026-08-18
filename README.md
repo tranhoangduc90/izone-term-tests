@@ -2,7 +2,7 @@
 
 Các answer sheet tĩnh cho Term Test 1, Term Test 2 và Mini Test Buổi 5. Mỗi trang đọc mã lớp từ query `?class=IC2139`, tải danh sách học viên từ API tích hợp và nộp từng kỹ năng độc lập. Listening được chấm, phân tích và ghi Portal ngay; học viên có thể xem kết quả này trước khi làm Reading.
 
-Route `/term-test-2-computer-based/` là bản giao diện mở rộng của Term Test 2. Toàn bộ đề được dựng bằng HTML: Listening có ghi chú, bảng và lựa chọn ngay trong từng câu; Reading chia bài đọc và câu hỏi thành hai khung cuộn riêng. Các ô Listening chỉ mở sau khi trình duyệt tải đủ file audio vào máy; nếu tải lỗi, bài vẫn khóa và có nút thử lại. Trang vẫn có điều hướng câu và đánh dấu câu cần xem lại.
+Route `/term-test-2-computer-based/` là bản giao diện mở rộng của Term Test 2. Toàn bộ đề được dựng bằng HTML: Listening có ghi chú, bảng và lựa chọn ngay trong từng câu; Reading chia bài đọc và câu hỏi thành hai khung cuộn riêng. Listening bắt đầu bằng phòng chờ: đề bị ẩn trong lúc tải đủ audio, học viên phải bật đoạn nghe thử tối đa 30 giây và chỉnh âm lượng trước khi nút bắt đầu được mở. Audio thi thật quay về giây 0; đề và ô trả lời chỉ xuất hiện sau khi audio phát thành công. Nếu tải lỗi, bài vẫn khóa và có nút thử lại. Trang vẫn có điều hướng câu và đánh dấu câu cần xem lại.
 
 Trang `/teacher/` dành cho giảng viên đã được cấp quyền Google. Trang này có tổng quan Band của cả lớp và tab kết quả chi tiết cho từng học viên; dữ liệu chỉ được API trả về sau khi kiểm tra quyền theo lớp.
 

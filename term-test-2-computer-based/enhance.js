@@ -543,71 +543,169 @@
     return { form, source };
   }
 
-  // Dữ liệu vào: file audio gốc, các ô Listening và thời điểm đã nghe trong sessionStorage.
-  // Việc chính: khóa bài, tải đủ file vào Blob trong máy rồi mới mở ô trả lời và phát một chiều.
-  // Kết quả: mạng chập chờn sau lúc mở khóa không làm audio đang thi bị tải dở giữa chừng.
-  // Khi lỗi: giữ bài bị khóa, giải thích rõ và cho học viên tải lại mà không mất draft.
+  // Dữ liệu vào: file audio gốc, giao diện Listening và trạng thái phiên thi trong sessionStorage.
+  // Việc chính: ẩn toàn bộ đề, tải đủ audio, cho nghe thử tối đa 30 giây rồi mới bắt đầu bài thật từ giây 0.
+  // Kết quả: học viên không thể xem trước đề; khi audio chính thức phát thành công thì đề và ô trả lời mới xuất hiện.
+  // Khi lỗi: phòng chờ vẫn giữ đề bị khóa, giải thích rõ và cho tải lại mà không làm mất draft.
   function setupBufferedAudio(listeningForm) {
     if (!listeningForm) return;
-    const card = document.createElement('section');
-    card.className = 'cbt-audio-card';
-    card.setAttribute('aria-label', 'Trình tải và phát audio Listening');
+    const examRegions = [
+      listeningForm.form.querySelector('.cbt-semantic-stage'),
+      listeningForm.form.querySelector('.cbt-question-nav-wrap')
+    ].filter(Boolean);
+    const gatedControls = examRegions.flatMap(region => [...region.querySelectorAll('button, input, select, textarea')]);
+    const initialDisabled = new Map(gatedControls.map(control => [control, control.disabled]));
 
-    const copy = document.createElement('div');
-    copy.className = 'cbt-audio-copy';
-    const label = document.createElement('strong');
-    label.textContent = contentConfig.audio.label;
-    const status = document.createElement('span');
-    status.className = 'cbt-audio-status';
-    status.setAttribute('role', 'status');
-    status.textContent = 'Đang tải đủ audio trước khi mở bài...';
-    copy.append(label, status);
+    const lobby = document.createElement('section');
+    lobby.className = 'cbt-listening-lobby';
+    lobby.setAttribute('aria-labelledby', 'cbtListeningLobbyTitle');
 
-    const controls = document.createElement('div');
-    controls.className = 'cbt-audio-controls';
-    const playButton = makeButton('cbt-audio-play', uiState.audio.started ? 'Tiếp tục audio' : 'Bắt đầu phát audio');
-    playButton.disabled = true;
+    const lobbyHeader = document.createElement('header');
+    lobbyHeader.className = 'cbt-lobby-header';
+    const lobbyBadge = document.createElement('span');
+    lobbyBadge.className = 'cbt-lobby-badge';
+    lobbyBadge.textContent = 'Phòng chờ Listening';
+    const lobbyTitle = document.createElement('h2');
+    lobbyTitle.id = 'cbtListeningLobbyTitle';
+    lobbyTitle.textContent = uiState.audio.started ? 'Tiếp tục bài thi Listening' : 'Kiểm tra âm thanh trước khi bắt đầu';
+    const lobbyLead = document.createElement('p');
+    lobbyLead.textContent = uiState.audio.started
+      ? 'Bài thi của bạn đã bắt đầu. Đề sẽ mở lại khi audio tải đủ và tiếp tục phát.'
+      : 'Đề Listening đang được khóa. Hãy hoàn thành ba bước dưới đây; audio thi thật sẽ quay về đầu khi bạn bắt đầu.';
+    lobbyHeader.append(lobbyBadge, lobbyTitle, lobbyLead);
+
+    function createLobbyStep(number, title, description) {
+      const step = document.createElement('section');
+      step.className = 'cbt-lobby-step';
+      const numberNode = document.createElement('span');
+      numberNode.className = 'cbt-lobby-step-number';
+      numberNode.textContent = String(number);
+      const body = document.createElement('div');
+      body.className = 'cbt-lobby-step-body';
+      const heading = document.createElement('h3');
+      heading.textContent = title;
+      const copy = document.createElement('p');
+      copy.textContent = description;
+      body.append(heading, copy);
+      step.append(numberNode, body);
+      return { step, body, copy };
+    }
+
+    const downloadStep = createLobbyStep(1, 'Tải đủ audio', 'Chờ thanh tải đạt 100%. Đề vẫn bị khóa trong lúc tải.');
+    const downloadStatus = document.createElement('strong');
+    downloadStatus.className = 'cbt-audio-status cbt-lobby-download-status';
+    downloadStatus.setAttribute('role', 'status');
+    downloadStatus.textContent = 'Đang tải audio...';
+    const downloadProgress = document.createElement('progress');
+    downloadProgress.className = 'cbt-audio-progress';
+    downloadProgress.max = 1;
+    downloadProgress.value = 0;
     const retryButton = makeButton('cbt-audio-retry', 'Tải lại audio');
     retryButton.hidden = true;
-    const progress = document.createElement('progress');
-    progress.className = 'cbt-audio-progress';
-    progress.max = 1;
-    progress.value = 0;
+    downloadStep.body.append(downloadStatus, downloadProgress, retryButton);
+
+    const previewStep = createLobbyStep(2, 'Nghe thử 30 giây', 'Nghe đoạn đầu và chỉnh âm lượng cho vừa tai. Đoạn thử không làm mất phần audio thi thật.');
+    const previewControls = document.createElement('div');
+    previewControls.className = 'cbt-lobby-preview-controls';
+    const previewButton = makeButton('cbt-audio-preview', 'Nghe thử 30 giây đầu');
+    previewButton.disabled = true;
     const volume = document.createElement('label');
-    volume.className = 'cbt-volume';
-    volume.append(document.createTextNode('Âm lượng'));
+    volume.className = 'cbt-volume cbt-lobby-volume';
+    const volumeText = document.createElement('span');
+    volumeText.textContent = 'Âm lượng';
     const volumeInput = document.createElement('input');
     volumeInput.type = 'range';
     volumeInput.min = '0.1';
     volumeInput.max = '1';
     volumeInput.step = '0.1';
     volumeInput.value = String(uiState.audio.volume);
-    volume.append(volumeInput);
-    controls.append(playButton, retryButton, progress, volume);
-    card.append(copy, controls);
-    listeningForm.source.toolbar.append(card);
+    volumeInput.disabled = true;
+    volume.append(volumeText, volumeInput);
+    previewControls.append(previewButton, volume);
+    const previewStatus = document.createElement('span');
+    previewStatus.className = 'cbt-preview-status';
+    previewStatus.setAttribute('role', 'status');
+    previewStatus.textContent = 'Chờ tải audio xong để nghe thử.';
+    previewStep.body.append(previewControls, previewStatus);
+
+    const startStep = createLobbyStep(3, 'Bắt đầu thi', 'Khi đã nghe rõ, bấm nút dưới đây. Audio chính thức và đề sẽ cùng bắt đầu.');
+    const startButton = makeButton('cbt-start-listening', uiState.audio.started ? 'Tiếp tục bài thi Listening' : 'Bắt đầu thi Listening');
+    startButton.disabled = true;
+    const startNotice = document.createElement('p');
+    startNotice.className = 'cbt-start-notice';
+    startNotice.textContent = uiState.audio.started
+      ? 'Audio sẽ tiếp tục từ vị trí gần nhất đã lưu.'
+      : 'Sau khi bắt đầu, bạn không thể quay lại chế độ nghe thử.';
+    startStep.body.append(startButton, startNotice);
+
+    const steps = document.createElement('div');
+    steps.className = 'cbt-lobby-steps';
+    steps.append(downloadStep.step, previewStep.step, startStep.step);
+    lobby.append(lobbyHeader, steps);
+    listeningForm.form.prepend(lobby);
+
+    const examCard = document.createElement('section');
+    examCard.className = 'cbt-audio-card';
+    examCard.setAttribute('aria-label', 'Trạng thái audio Listening');
+    examCard.hidden = true;
+    const examCopy = document.createElement('div');
+    examCopy.className = 'cbt-audio-copy';
+    const examLabel = document.createElement('strong');
+    examLabel.textContent = contentConfig.audio.label;
+    const examStatus = document.createElement('span');
+    examStatus.className = 'cbt-audio-status';
+    examStatus.setAttribute('role', 'status');
+    examCopy.append(examLabel, examStatus);
+    const examControls = document.createElement('div');
+    examControls.className = 'cbt-audio-controls';
+    const resumeButton = makeButton('cbt-audio-play', 'Tiếp tục audio');
+    resumeButton.hidden = true;
+    const examRetryButton = makeButton('cbt-audio-retry', 'Khôi phục audio');
+    examRetryButton.hidden = true;
+    const playbackProgress = document.createElement('progress');
+    playbackProgress.className = 'cbt-audio-progress';
+    playbackProgress.max = 1;
+    playbackProgress.value = 0;
+    const examVolume = volume.cloneNode(true);
+    examVolume.classList.remove('cbt-lobby-volume');
+    const examVolumeInput = examVolume.querySelector('input');
+    examVolumeInput.disabled = false;
+    examControls.append(resumeButton, examRetryButton, playbackProgress, examVolume);
+    examCard.append(examCopy, examControls);
+    listeningForm.source.toolbar.append(examCard);
 
     const audio = document.createElement('audio');
     audio.preload = 'auto';
     audio.volume = uiState.audio.volume;
     audio.hidden = true;
-    card.append(audio);
+    lobby.append(audio);
 
     let lastSavedSecond = Math.floor(uiState.audio.time);
-    let restored = false;
+    let examStarted = Boolean(uiState.audio.started);
+    let previewHeard = false;
+    let previewing = false;
     let ready = false;
+    let allowPause = false;
     let downloadRun = 0;
     let downloadController = null;
     let objectUrl = '';
-    const gatedControls = [...listeningForm.form.querySelectorAll('[data-number], .cbt-choice input, button[type="submit"]')];
-    const initialDisabled = new Map(gatedControls.map(control => [control, control.disabled]));
 
-    function lockListening(locked) {
-      listeningForm.form.classList.toggle('cbt-audio-loading', locked);
-      listeningForm.form.setAttribute('aria-busy', locked ? 'true' : 'false');
+    function setStepState(step, state) {
+      step.dataset.state = state;
+    }
+
+    function setListeningVisible(visible) {
+      listeningForm.form.classList.toggle('cbt-listening-locked', !visible);
       for (const control of gatedControls) {
-        control.disabled = locked ? true : Boolean(initialDisabled.get(control));
+        control.disabled = visible ? Boolean(initialDisabled.get(control)) : true;
       }
+      for (const region of examRegions) {
+        region.hidden = !visible;
+        region.inert = !visible;
+        region.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      }
+      lobby.hidden = visible;
+      examCard.hidden = !visible;
     }
 
     function formatBytes(bytes) {
@@ -623,40 +721,79 @@
 
     function failDownload(message) {
       ready = false;
-      lockListening(true);
-      playButton.disabled = true;
+      listeningForm.form.setAttribute('aria-busy', 'false');
+      setListeningVisible(false);
+      setStepState(downloadStep.step, 'error');
+      setStepState(previewStep.step, 'locked');
+      setStepState(startStep.step, 'locked');
+      previewButton.disabled = true;
+      volumeInput.disabled = true;
+      startButton.disabled = true;
       retryButton.hidden = false;
-      progress.removeAttribute('value');
-      status.textContent = message;
+      downloadProgress.removeAttribute('value');
+      downloadStatus.textContent = message;
     }
 
-    function restoreAudioTime() {
-      if (restored || !Number.isFinite(audio.duration)) return;
+    function restoreOfficialTime() {
+      if (!examStarted || !Number.isFinite(audio.duration)) return;
       const safeTime = Math.min(Math.max(0, uiState.audio.time), Math.max(0, audio.duration - 1));
-      if (safeTime > 0) audio.currentTime = safeTime;
-      restored = true;
+      audio.currentTime = safeTime;
     }
 
-    function updateAudioStatus(prefix) {
-      if (!ready) return;
+    function updateExamStatus(prefix) {
+      if (!ready || !examStarted) return;
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
       const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
-      progress.max = duration || 1;
-      progress.value = current;
-      status.textContent = prefix + ' · ' + formatTime(current) + ' / '
+      playbackProgress.max = duration || 1;
+      playbackProgress.value = current;
+      examStatus.textContent = prefix + ' · ' + formatTime(current) + ' / '
         + (duration ? formatTime(duration) : contentConfig.audio.durationLabel);
     }
 
     audio.addEventListener('loadedmetadata', () => {
       ready = true;
-      restoreAudioTime();
-      lockListening(false);
-      playButton.disabled = false;
+      restoreOfficialTime();
+      listeningForm.form.setAttribute('aria-busy', 'false');
+      downloadProgress.max = 1;
+      downloadProgress.value = 1;
       retryButton.hidden = true;
-      updateAudioStatus(uiState.audio.started ? 'Đã tải đủ · sẵn sàng tiếp tục' : 'Đã tải đủ · sẵn sàng làm bài');
+      volumeInput.disabled = false;
+      setStepState(downloadStep.step, 'complete');
+      if (examStarted) {
+        downloadStatus.textContent = 'Đã tải đủ audio · sẵn sàng tiếp tục bài thi.';
+        previewButton.hidden = true;
+        previewStatus.textContent = 'Chế độ nghe thử đã đóng vì bài thi đã bắt đầu.';
+        setStepState(previewStep.step, 'skipped');
+        setStepState(startStep.step, 'active');
+        startButton.disabled = false;
+      } else {
+        downloadStatus.textContent = 'Đã tải đủ audio · 100%.';
+        previewButton.hidden = false;
+        previewButton.disabled = false;
+        startButton.disabled = !previewHeard;
+        setStepState(previewStep.step, previewHeard ? 'complete' : 'active');
+        setStepState(startStep.step, previewHeard ? 'active' : 'locked');
+        previewStatus.textContent = previewHeard
+          ? 'Đã nghe thử. Khi âm lượng vừa tai, bạn có thể bắt đầu thi.'
+          : 'Bấm “Nghe thử 30 giây đầu” để kiểm tra âm lượng.';
+      }
     });
     audio.addEventListener('timeupdate', () => {
-      updateAudioStatus(audio.paused ? 'Đã dừng' : 'Đang phát');
+      if (previewing && !examStarted) {
+        const previewTime = Math.min(30, Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+        previewStatus.textContent = 'Đang nghe thử · ' + formatTime(previewTime) + ' / 00:30';
+        if (previewTime >= 30) {
+          allowPause = true;
+          audio.pause();
+          allowPause = false;
+          previewing = false;
+          previewButton.textContent = 'Nghe lại 30 giây đầu';
+          previewStatus.textContent = 'Đã nghe hết 30 giây thử. Nếu âm lượng vừa tai, bạn có thể bắt đầu thi.';
+        }
+        return;
+      }
+      if (!examStarted) return;
+      updateExamStatus(audio.paused ? 'Audio đang bị gián đoạn' : 'Đang phát bài thi');
       const currentSecond = Math.floor(audio.currentTime);
       if (currentSecond - lastSavedSecond >= 5) {
         lastSavedSecond = currentSecond;
@@ -665,18 +802,32 @@
       }
     });
     audio.addEventListener('ended', () => {
+      if (!examStarted) {
+        previewing = false;
+        previewButton.textContent = 'Nghe lại 30 giây đầu';
+        previewStatus.textContent = 'Đã nghe hết đoạn thử. Nếu âm lượng vừa tai, bạn có thể bắt đầu thi.';
+        return;
+      }
       uiState.audio.time = audio.duration || uiState.audio.time;
-      playButton.disabled = true;
-      playButton.textContent = 'Đã phát xong';
-      updateAudioStatus('Đã phát xong');
+      resumeButton.hidden = true;
+      updateExamStatus('Đã phát xong');
       saveUiState();
+    });
+    audio.addEventListener('pause', () => {
+      if (!examStarted || audio.ended || allowPause || examCard.hidden) return;
+      audio.play().catch(() => {
+        resumeButton.hidden = false;
+        updateExamStatus('Audio đang bị gián đoạn · nhấn Tiếp tục audio');
+      });
     });
     audio.addEventListener('error', () => {
       if (!ready) {
         failDownload('File audio tải xong nhưng trình duyệt không đọc được. Hãy nhấn “Tải lại audio”.');
+      } else if (examStarted) {
+        examStatus.textContent = 'Không thể phát audio. Hãy nhấn “Khôi phục audio”.';
+        examRetryButton.hidden = false;
       } else {
-        status.textContent = 'Không thể phát audio. Hãy nhấn “Tải lại audio”.';
-        retryButton.hidden = false;
+        failDownload('Không thể phát đoạn nghe thử. Hãy nhấn “Tải lại audio”.');
       }
     });
 
@@ -685,18 +836,29 @@
       const currentRun = downloadRun;
       downloadController?.abort();
       downloadController = new AbortController();
+      allowPause = true;
       audio.pause();
       audio.removeAttribute('src');
       audio.load();
+      allowPause = false;
       revokeAudioUrl();
       ready = false;
-      restored = false;
-      lockListening(true);
-      playButton.disabled = true;
+      previewing = false;
+      setListeningVisible(false);
+      listeningForm.form.setAttribute('aria-busy', 'true');
+      setStepState(downloadStep.step, 'active');
+      setStepState(previewStep.step, examStarted ? 'skipped' : 'locked');
+      setStepState(startStep.step, 'locked');
+      previewButton.disabled = true;
+      volumeInput.disabled = true;
+      startButton.disabled = true;
       retryButton.hidden = true;
-      progress.max = 1;
-      progress.value = 0;
-      status.textContent = 'Đang tải đủ audio trước khi mở bài...';
+      examRetryButton.hidden = true;
+      downloadProgress.max = 1;
+      downloadProgress.value = 0;
+      downloadStatus.textContent = examStarted
+        ? 'Đang tải đủ audio để tiếp tục bài thi...'
+        : 'Đang tải đủ audio trước khi cho nghe thử...';
       try {
         const loader = window.TERM_TEST_AUDIO_LOADER?.downloadAudio;
         if (!loader) throw new Error('AUDIO_LOADER_MISSING');
@@ -705,14 +867,14 @@
           onProgress: ({ loaded, total, complete }) => {
             if (currentRun !== downloadRun) return;
             if (total > 0) {
-              progress.max = total;
-              progress.value = loaded;
+              downloadProgress.max = total;
+              downloadProgress.value = loaded;
               const percent = Math.min(100, Math.round(loaded * 100 / total));
-              status.textContent = (complete ? 'Đã tải đủ' : 'Đang tải audio')
+              downloadStatus.textContent = (complete ? 'Đã tải đủ' : 'Đang tải audio')
                 + ' · ' + percent + '% · ' + formatBytes(loaded) + ' / ' + formatBytes(total);
             } else {
-              progress.removeAttribute('value');
-              status.textContent = 'Đang tải audio · ' + formatBytes(loaded);
+              downloadProgress.removeAttribute('value');
+              downloadStatus.textContent = 'Đang tải audio · ' + formatBytes(loaded);
             }
           }
         });
@@ -726,41 +888,90 @@
       }
     }
 
-    playButton.addEventListener('click', async () => {
-      if (!ready) return;
-      restoreAudioTime();
+    previewButton.addEventListener('click', async () => {
+      if (!ready || examStarted) return;
+      if (previewing && !audio.paused) {
+        allowPause = true;
+        audio.pause();
+        allowPause = false;
+        previewing = false;
+        previewButton.textContent = 'Nghe lại 30 giây đầu';
+        previewStatus.textContent = 'Đã dừng nghe thử. Khi âm lượng vừa tai, bạn có thể bắt đầu thi.';
+        return;
+      }
+      audio.currentTime = 0;
+      previewing = true;
       try {
         await audio.play();
+        previewHeard = true;
+        previewButton.textContent = 'Dừng nghe thử';
+        startButton.disabled = false;
+        setStepState(previewStep.step, 'complete');
+        setStepState(startStep.step, 'active');
+        previewStatus.textContent = 'Đang nghe thử · 00:00 / 00:30';
+      } catch {
+        previewing = false;
+        previewStatus.textContent = 'Trình duyệt chưa cho phép phát. Hãy nhấn lại nút nghe thử.';
+      }
+    });
+    startButton.addEventListener('click', async () => {
+      if (!ready || (!examStarted && !previewHeard)) return;
+      allowPause = true;
+      audio.pause();
+      previewing = false;
+      const officialTime = examStarted ? uiState.audio.time : 0;
+      audio.currentTime = Math.min(Math.max(0, officialTime), Math.max(0, (audio.duration || 1) - 1));
+      try {
+        await audio.play();
+        examStarted = true;
         uiState.audio.started = true;
-        playButton.disabled = true;
-        playButton.textContent = 'Audio đang phát';
-        updateAudioStatus('Đang phát');
+        uiState.audio.time = audio.currentTime;
+        lastSavedSecond = Math.floor(audio.currentTime);
+        allowPause = false;
+        setListeningVisible(true);
+        updateExamStatus('Đang phát bài thi');
         saveUiState();
       } catch {
-        status.textContent = 'Trình duyệt chưa cho phép phát audio. Hãy nhấn lại nút phát.';
-        playButton.disabled = false;
+        allowPause = false;
+        downloadStatus.textContent = 'Trình duyệt chưa cho phép phát audio. Hãy nhấn lại “Bắt đầu thi Listening”.';
+      }
+    });
+    resumeButton.addEventListener('click', async () => {
+      try {
+        await audio.play();
+        resumeButton.hidden = true;
+        updateExamStatus('Đang phát bài thi');
+      } catch {
+        updateExamStatus('Chưa thể phát · hãy nhấn lại Tiếp tục audio');
       }
     });
     retryButton.addEventListener('click', downloadFullAudio);
-    volumeInput.addEventListener('input', () => {
-      const nextVolume = Number(volumeInput.value);
+    examRetryButton.addEventListener('click', downloadFullAudio);
+    function applyVolume(value) {
+      const nextVolume = Number(value);
       audio.volume = nextVolume;
       uiState.audio.volume = nextVolume;
+      volumeInput.value = String(nextVolume);
+      examVolumeInput.value = String(nextVolume);
       saveUiState();
-    });
+    }
+    volumeInput.addEventListener('input', () => applyVolume(volumeInput.value));
+    examVolumeInput.addEventListener('input', () => applyVolume(examVolumeInput.value));
     listeningForm.form.addEventListener('submit', () => {
+      allowPause = true;
       audio.pause();
-      uiState.audio.time = audio.currentTime;
+      if (examStarted) uiState.audio.time = audio.currentTime;
       saveUiState();
     });
     window.addEventListener('pagehide', () => {
-      uiState.audio.time = audio.currentTime;
+      allowPause = true;
+      if (examStarted) uiState.audio.time = audio.currentTime;
       saveUiState();
       downloadController?.abort();
       revokeAudioUrl();
     });
 
-    lockListening(true);
+    setListeningVisible(false);
     downloadFullAudio();
   }
 
