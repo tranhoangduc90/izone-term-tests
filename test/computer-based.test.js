@@ -12,42 +12,40 @@ async function loadContentConfig() {
   return { source, config: context.window.TERM_TEST_CONTENT };
 }
 
-test('bản computer-based dùng đúng Term Test 2, đủ trang và đủ vị trí 40 câu', async () => {
+function collectSlots(section, property) {
+  return [...section[property].matchAll(/data-answer-slot="(\d+)"/g)].map(match => Number(match[1]));
+}
+
+test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả lời cho mỗi kỹ năng', async () => {
   const { source, config } = await loadContentConfig();
-  assert.equal(config.variant, 'inline-on-paper');
+  assert.equal(config.variant, 'semantic-html');
   assert.equal(config.baseTestSlug, 'term-test-2');
   assert.equal(config.listening.sections.length, 4);
   assert.equal(config.reading.sections.length, 3);
 
-  const listeningPageConfigs = Array.from(config.listening.sections).flatMap(section => Array.from(section.pages));
-  const readingPageConfigs = Array.from(config.reading.sections).flatMap(section => Array.from(section.pages));
-  const listeningPages = listeningPageConfigs.map(page => page.src);
-  const readingPages = readingPageConfigs.map(page => page.src);
-  assert.equal(listeningPages.length, 6);
-  assert.equal(readingPages.length, 12);
-  assert.equal(new Set(listeningPages).size, listeningPages.length);
-  assert.equal(new Set(readingPages).size, readingPages.length);
+  const listeningSlots = Array.from(config.listening.sections).flatMap(section => collectSlots(section, 'html'));
+  const readingSlots = Array.from(config.reading.sections).flatMap(section => collectSlots(section, 'questionsHtml'));
+  const expected = Array.from({ length: 40 }, (_, index) => index + 1);
+  assert.deepEqual(listeningSlots.slice().sort((a, b) => a - b), expected);
+  assert.deepEqual(readingSlots.slice().sort((a, b) => a - b), expected);
+  assert.equal(new Set(listeningSlots).size, 40, 'Listening có câu bị lặp');
+  assert.equal(new Set(readingSlots).size, 40, 'Reading có câu bị lặp');
 
-  for (const pages of [listeningPageConfigs, readingPageConfigs]) {
-    const positions = pages.flatMap(page => Array.from(page.answers || []));
-    const numbers = positions.map(item => item.number).sort((a, b) => a - b);
-    assert.deepEqual(numbers, Array.from({ length: 40 }, (_, index) => index + 1));
-    positions.forEach(item => {
-      assert.ok(item.x >= 0 && item.x <= 100, 'Tọa độ x không hợp lệ ở câu ' + item.number);
-      assert.ok(item.y >= 0 && item.y <= 100, 'Tọa độ y không hợp lệ ở câu ' + item.number);
-      assert.ok(item.width >= 10 && item.x + item.width <= 100, 'Độ rộng không hợp lệ ở câu ' + item.number);
-    });
+  for (const section of Array.from(config.reading.sections)) {
+    assert.match(section.passageHtml, /<p>|cbt-lettered-paragraph/);
+    assert.match(section.questionsHtml, /data-answer-slot=/);
+    assert.ok(section.passageHtml.length > 2_000, 'Passage HTML quá ngắn: ' + section.label);
   }
 
-  for (const relativePath of [...listeningPages, ...readingPages, config.audio.src]) {
-    const info = await stat(new URL(relativePath, routeUrl));
-    assert.ok(info.isFile(), 'Thiếu tài nguyên: ' + relativePath);
-    assert.ok(info.size > 10_000, 'Tài nguyên quá nhỏ hoặc hỏng: ' + relativePath);
-  }
+  assert.equal(/\.png|page-\d+\.png|inline-on-paper/i.test(source), false, 'Giao diện HTML không được phụ thuộc ảnh scan');
+  assert.match(source, /cbt-question-card/);
+  assert.match(source, /cbt-test-table/);
+  assert.equal(/correctAnswer|answerKey|accepted\s*:/i.test(source), false, 'Cấu hình nội dung không được chứa đáp án đúng');
 
   const audioInfo = await stat(new URL(config.audio.src, routeUrl));
+  assert.ok(audioInfo.isFile(), 'Thiếu audio Listening');
+  assert.ok(audioInfo.size > 10_000, 'Audio quá nhỏ hoặc hỏng');
   assert.ok(audioInfo.size < 25 * 1024 * 1024, 'Audio cần được tối ưu trước khi đẩy Git');
-  assert.equal(/accepted|correctAnswer|answerKey/i.test(source), false, 'Cấu hình nội dung không được chứa đáp án đúng');
 });
 
 test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cường giao diện', async () => {
@@ -64,12 +62,13 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.match(html, /object-src 'none'/);
 });
 
-test('mã tăng cường không thay API, slug hoặc nhúng đáp án', async () => {
+test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
   const source = await readFile(new URL('enhance.js', routeUrl), 'utf8');
-  assert.equal(/accepted|correctAnswer|answerKey/i.test(source), false);
+  assert.equal(/correctAnswer|answerKey|accepted\s*:/i.test(source), false);
   assert.equal(/API_BASE_URL|\/api\/term-tests\//.test(source), false);
-  assert.equal(/wrapper\.dataset\.number/.test(source), false, 'Không được trùng data-number của ô trả lời');
+  assert.equal(/\.png|createInlineAnswer|cbt-page-frame/.test(source), false);
   assert.match(source, /shared\/app\.js/);
-  assert.match(source, /createInlineAnswer/);
+  assert.match(source, /attachAnswerFields/);
   assert.match(source, /grid\.replaceChildren\(source\.pane\)/);
+  assert.match(source, /field\.dispatchEvent\(new Event\('input'/);
 });
