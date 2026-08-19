@@ -294,6 +294,16 @@ button.writing-score-card:focus-visible {
   margin: 7px 0 0;
 }
 
+.writing-feedback-richtext ul,
+.writing-feedback-richtext ol {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+
+.writing-feedback-richtext li {
+  margin: 5px 0;
+}
+
 .writing-feedback-richtext a {
   color: #145eb5;
   font-weight: 700;
@@ -305,20 +315,68 @@ button.writing-score-card:focus-visible {
   border-top: 1px solid #e0e8f1;
 }
 
-.writing-component-list details {
-  padding: 11px 0;
+.writing-component {
+  padding: 16px 0;
   border-bottom: 1px solid #e7edf4;
 }
 
-.writing-component-list summary {
-  color: #24558b;
-  cursor: pointer;
-  font-weight: 700;
+.writing-component:last-child {
+  border-bottom: 0;
 }
 
-.writing-component-feedback {
-  margin: 10px 0 0;
-  color: #4a6079;
+.writing-component > h5 {
+  margin: 0;
+  color: #173f70;
+  font-size: 14px;
+}
+
+.writing-component-summary {
+  margin-top: 8px;
+  color: #354d69;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+
+.writing-component-toggle {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #145eb5;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.writing-component-toggle:hover,
+.writing-component-toggle:focus-visible {
+  color: #0b4388;
+}
+
+.writing-component-toggle:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #77aef2;
+  outline-offset: 3px;
+}
+
+.writing-component-detail {
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  border: 1px solid #cfdeef;
+  border-radius: 10px;
+  background: #f4f8fd;
+  color: #344d6a;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+
+.writing-component-detail[hidden] {
+  display: none;
 }
 
 @media (max-width: 760px) {
@@ -2174,56 +2232,6 @@ button.writing-score-card:focus-visible {
   text-align: right;
 }
 
-.writing-result-grid {
-  display: grid;
-  gap: 14px;
-}
-
-.writing-result-card {
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid #d5dfec;
-  border-radius: 11px;
-}
-
-.writing-result-card > header {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: #f8fafc;
-  border-bottom: 1px solid #dce3ec;
-}
-
-.writing-result-card h4 {
-  margin: 0;
-  color: var(--cbt-navy);
-}
-
-.writing-result-card header span {
-  color: #667085;
-  font-size: 11px;
-}
-
-.writing-copy-button {
-  min-height: 36px;
-  padding: 7px 12px;
-  white-space: nowrap;
-  font-size: 12px;
-}
-
-.writing-result-text {
-  max-height: 420px;
-  padding: 18px;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 14px;
-  line-height: 1.65;
-}
-
 .cbt-mode .result-panel,
 .cbt-mode .transition-card {
   width: min(980px, 100%);
@@ -2433,8 +2441,7 @@ button.writing-score-card:focus-visible {
     display: none;
   }
 
-  .writing-result-heading,
-  .writing-result-card > header {
+  .writing-result-heading {
     align-items: stretch;
     flex-direction: column;
   }
