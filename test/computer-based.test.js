@@ -116,11 +116,13 @@ test('kết quả Writing chỉ mở khi đủ hai Task và mở phân tích chi
   const source = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
   const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
   assert.match(source, /grading\?\.ready/);
-  assert.match(source, /Điểm chỉ được mở khi cả Task 1 và Task 2 đã chấm hoàn chỉnh/);
   assert.match(source, /openWritingFeedback/);
   assert.match(source, /Nhận xét theo tiêu chí/);
   assert.match(source, /appendSafeWritingFeedback/);
   assert.match(source, /Xem phân tích chi tiết và cách cải thiện/);
+  assert.match(source, /Bài Writing của bạn đang được chấm\. Kết quả sẽ hiển thị sớm\./);
+  assert.match(source, /Bạn có thể tắt trang web và quay lại sau bằng đúng đường dẫn này\./);
+  assert.match(source, /Bài Writing đã được chấm xong\. Điểm và phân tích chi tiết đã hiển thị bên dưới\./);
   assert.match(source, /Thu gọn phân tích chi tiết/);
   assert.match(source, /writingCriterionSections/);
   assert.match(source, /writing-component-detail/);

@@ -477,6 +477,7 @@
     if (demoMode || !state.attemptToken || writingGradingPollInFlight) return;
     writingGradingPollInFlight = true;
     try {
+      const wasReady = Boolean(state.result?.writing?.grading?.ready);
       const payload = await apiRequest('/api/term-tests/result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -484,7 +485,10 @@
       });
       applyWritingFromServer(payload.writing, Boolean(payload.writing?.submitted));
       renderResult(payload);
-      if (payload.writing?.grading?.ready) stopWritingGradingPolling();
+      if (payload.writing?.grading?.ready) {
+        stopWritingGradingPolling();
+        if (!wasReady) showNotice('Bài Writing đã được chấm xong. Điểm và phân tích chi tiết đã hiển thị bên dưới.', 'success');
+      }
     } catch {
       // Việc chấm vẫn nằm trên máy chủ; lần kế tiếp tiếp tục kiểm tra mà không làm mất màn hình kết quả.
     } finally {
@@ -1147,14 +1151,18 @@
     const eyebrow = document.createElement('span');
     eyebrow.textContent = grading?.ready ? 'Kết quả Writing' : 'Bài Writing đã nộp';
     const title = document.createElement('h3');
-    title.textContent = grading?.ready ? 'Điểm và bài chấm Writing' : 'Hệ thống đang chấm Writing';
+    title.textContent = grading?.ready
+      ? 'Điểm và bài chấm Writing'
+      : grading?.status === 'review_required'
+        ? 'Bài Writing đang được kiểm tra'
+        : 'Bài Writing của bạn đang được chấm';
     headingCopy.append(eyebrow, title);
     const note = document.createElement('p');
     note.textContent = grading?.ready
       ? 'Nhấn vào điểm Task 1 hoặc Task 2 để xem bài chấm chi tiết.'
       : grading?.status === 'review_required'
         ? 'Bài làm đã được giữ an toàn; một phần chấm cần giáo viên kiểm tra trước khi công bố.'
-        : 'Điểm chỉ được mở khi cả Task 1 và Task 2 đã chấm hoàn chỉnh.';
+        : 'Kết quả sẽ hiển thị sớm. Bạn có thể tắt trang web và quay lại sau bằng đúng đường dẫn này.';
     heading.append(headingCopy, note);
 
     const gradingArea = document.createElement('div');
@@ -1196,19 +1204,19 @@
       const statusText = document.createElement('p');
       statusText.textContent = grading?.status === 'review_required'
         ? 'Bạn có thể đóng trang; kết quả vẫn được lưu và sẽ hiện khi hoàn chỉnh.'
-        : 'Bạn có thể đóng trang và mở lại sau; bài làm và tiến độ chấm đều nằm trên hệ thống.';
+        : 'Bài làm và tiến độ chấm đã được lưu trên hệ thống. Nếu vẫn mở trang, kết quả sẽ tự cập nhật khi chấm xong.';
       statusCopy.append(statusTitle, statusText);
       const refresh = document.createElement('button');
       refresh.type = 'button';
       refresh.className = 'button button-secondary';
-      refresh.textContent = 'Kiểm tra lại';
+      refresh.textContent = 'Kiểm tra kết quả ngay';
       refresh.addEventListener('click', async () => {
         refresh.disabled = true;
         refresh.textContent = 'Đang kiểm tra...';
         await refreshWritingGrading();
         if (refresh.isConnected) {
           refresh.disabled = false;
-          refresh.textContent = 'Kiểm tra lại';
+          refresh.textContent = 'Kiểm tra kết quả ngay';
         }
       });
       gradingArea.append(statusCopy, refresh);
@@ -1419,6 +1427,13 @@
       : 'Listening đã được chấm, phân tích và ghi vào Portal.';
   }
 
+  function writingGradingNotice(grading) {
+    if (grading?.status === 'review_required') {
+      return 'Bài Writing đã được lưu an toàn và đang chờ giáo viên kiểm tra. Bạn có thể tắt trang web và quay lại sau bằng đúng đường dẫn này.';
+    }
+    return 'Bài Writing của bạn đang được chấm. Kết quả sẽ hiển thị sớm. Bạn có thể tắt trang web và quay lại sau bằng đúng đường dẫn này.';
+  }
+
   async function loadResult(button) {
     setBusy(button, true, 'Đang tải kết quả...', button.dataset.normalText || button.textContent);
     try {
@@ -1429,7 +1444,12 @@
       });
       applyWritingFromServer(payload.writing, Boolean(payload.writing?.submitted));
       renderResult(payload);
-      showNotice(portalNotice(payload.portalSyncStatus, payload.completed), payload.portalSyncStatus === 'pending' ? '' : 'success');
+      const grading = payload.writing?.grading;
+      if (payload.writing?.submitted && !grading?.ready) {
+        showNotice(writingGradingNotice(grading), 'success');
+      } else {
+        showNotice(portalNotice(payload.portalSyncStatus, payload.completed), payload.portalSyncStatus === 'pending' ? '' : 'success');
+      }
       setStage('result');
       scheduleWritingGradingRefresh();
     } catch (error) {
@@ -1657,8 +1677,8 @@
         elements.writingView.dispatchEvent(new CustomEvent('term-test:writing-submitted'));
         setStage('result-ready');
         showNotice(automatic
-          ? 'Đã hết giờ và thu bài Writing. Hệ thống đang mở kết quả Listening và Reading...'
-          : 'Đã nộp và lưu Writing. Hệ thống đang mở kết quả Listening và Reading...', 'success');
+          ? 'Đã hết 60 phút và hệ thống đã thu bài Writing. Bài đang được chấm; bạn có thể tắt trang web và quay lại sau.'
+          : 'Đã nộp Writing thành công. Bài đang được chấm; bạn có thể tắt trang web và quay lại sau.', 'success');
         await loadResult(elements.viewResult);
       } catch (error) {
         showNotice(automatic
