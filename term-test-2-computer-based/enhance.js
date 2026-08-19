@@ -75,18 +75,20 @@
     return button;
   }
 
-  // Dữ liệu vào: khối chọn học viên do shared/app.js dựng và mã lớp tải từ API.
-  // Việc chính: bỏ nhãn lặp, đưa tên lớp lên trên tiêu đề và giữ dropdown trên cùng một hàng.
-  // Kết quả: phần đầu trang thấp hơn nhưng dropdown và dữ liệu học viên vẫn là phần tử gốc.
+  // Dữ liệu vào: khối chọn học viên do shared/app.js dựng, mã lớp và thanh tiêu đề của bài thi.
+  // Việc chính: bỏ nhãn lặp rồi chuyển nguyên khối lớp/tên đã chọn lên cùng hàng với tiêu đề.
+  // Kết quả: phần làm bài có thêm chiều cao nhưng dropdown và trạng thái khóa tên vẫn là phần tử gốc.
   // Khi thiếu phần tử: giữ nguyên bố cục cũ để không cản học viên vào bài.
   function compactIdentityPanel() {
     const panel = document.getElementById('identityView');
     const copy = panel?.querySelector('.identity-copy');
     const oldEyebrow = copy?.querySelector('.eyebrow');
+    const identityTitle = document.getElementById('identityTitle');
     const classLabel = document.getElementById('classLabel');
     const select = document.getElementById('studentSelect');
     const selectLabel = select?.closest('label');
-    if (!panel || !copy || !classLabel || !select || !selectLabel) return;
+    const topbar = document.querySelector('.topbar');
+    if (!panel || !copy || !classLabel || !select || !selectLabel || !topbar) return;
 
     oldEyebrow?.remove();
     classLabel.classList.add('eyebrow', 'cbt-class-label');
@@ -95,6 +97,23 @@
     selectLabel.classList.add('cbt-student-select');
     selectLabel.replaceChildren(select);
     panel.classList.add('cbt-identity-panel');
+    topbar.classList.add('cbt-topbar-with-identity');
+    topbar.append(panel);
+
+    // Danh sách lớp được shared/app.js nạp bất đồng bộ sau khi enhancer chạy.
+    // Khóa đúng học viên khi option xuất hiện để tải nhanh hay tải lại đều không yêu cầu chọn tên lần nữa.
+    function lockPreparedIdentity() {
+      if (isDemo || !window.TERM_TEST_BOOTSTRAP || !select.value) return;
+      select.disabled = true;
+      select.setAttribute('aria-label', 'Họ và tên đã xác nhận');
+      panel.dataset.studentLocked = 'true';
+      if (identityTitle) identityTitle.textContent = 'Họ và tên đã xác nhận';
+    }
+
+    lockPreparedIdentity();
+    const identityObserver = new MutationObserver(lockPreparedIdentity);
+    identityObserver.observe(select, { childList: true });
+    window.addEventListener('pagehide', () => identityObserver.disconnect(), { once: true });
   }
 
   function replaceInstructions(list, instructions) {
@@ -1070,24 +1089,11 @@
   }
 
   // Dữ liệu vào: deadline Listening do máy chủ tạo khi học viên bấm Bắt đầu.
-  // Việc chính: hiện thời gian còn lại, chuyển đỏ trong 2 phút kiểm tra cuối và khóa/tự nộp đúng hạn.
+  // Việc chính: theo dõi deadline ở chế độ nền và khóa/tự nộp đúng hạn, không hiện số giây gây mất tập trung.
   // Kết quả: audio kết thúc không tạo thêm thời gian làm vô hạn; lần thử lại vẫn dùng bản đáp án đã khóa.
   // Khi lỗi mạng: form tiếp tục bị khóa và shared/app.js tự thử gửi lại cùng một payload.
   function setupListeningTimer(listeningForm) {
     if (!listeningForm) return;
-    const headingActions = listeningForm.form.querySelector('.cbt-heading-actions');
-    if (!headingActions) return;
-    const clock = document.createElement('div');
-    clock.className = 'cbt-reading-clock cbt-listening-clock';
-    clock.setAttribute('role', 'timer');
-    clock.setAttribute('aria-live', 'polite');
-    const label = document.createElement('span');
-    label.textContent = 'Còn';
-    const value = document.createElement('strong');
-    value.textContent = '--:--';
-    clock.append(label, value);
-    headingActions.prepend(clock);
-
     const autoSubmit = makeButton('cbt-listening-auto-submit', 'Tự nộp bài Listening');
     autoSubmit.type = 'submit';
     autoSubmit.hidden = true;
@@ -1125,13 +1131,6 @@
       if (!Number.isFinite(deadline)) return;
       const serverOffset = Number(exam.serverTimeOffsetMs) || 0;
       const remaining = Math.max(0, deadline - (Date.now() + serverOffset));
-      value.textContent = formatTime(Math.ceil(remaining / 1000));
-      const finalReview = remaining > 0 && remaining <= 120_000;
-      clock.classList.toggle('is-warning', finalReview);
-      clock.classList.toggle('is-expired', remaining === 0);
-      clock.setAttribute('aria-label', remaining > 0
-        ? `${finalReview ? 'Thời gian kiểm tra cuối' : 'Thời gian Listening còn lại'} ${formatTime(Math.ceil(remaining / 1000))}`
-        : 'Đã hết giờ Listening; hệ thống đang tự thu bài');
       if (remaining === 0) lockAndSubmit(Date.now());
     }
     render();

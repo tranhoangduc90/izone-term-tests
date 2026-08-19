@@ -325,8 +325,8 @@
     });
     previewAudio.remove();
     revokePreview();
-    await loadScript('../shared/app.js?rev=20260819-cbt-v20');
-    await loadScript('enhance.js?rev=20260819-cbt-v20');
+    await loadScript('../shared/app.js?rev=20260819-cbt-v21');
+    await loadScript('enhance.js?rev=20260819-cbt-v21');
   }
 
   async function resumeAfterListening() {

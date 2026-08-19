@@ -29,6 +29,46 @@
   display: none;
 }
 
+.cbt-mode .topbar.cbt-topbar-with-identity {
+  display: grid;
+  grid-template-columns: auto minmax(460px, 720px);
+  gap: 18px;
+  align-items: center;
+}
+
+.cbt-mode .topbar .cbt-identity-panel {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 0 0 auto;
+  padding: 4px 5px 4px 10px;
+  grid-template-columns: minmax(150px, .65fr) minmax(260px, 1fr);
+  gap: 10px;
+  color: #fff;
+  background: rgba(255, 255, 255, .09);
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+.cbt-mode .topbar .cbt-identity-panel h2 {
+  margin: 1px 0 0;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.cbt-mode .topbar .cbt-class-label {
+  margin: 0;
+  color: #bcd8f3;
+  font-size: 9px;
+}
+
+.cbt-mode .topbar .cbt-student-select select {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
 .cbt-mode .page-shell {
   width: min(1480px, calc(100% - 20px));
   margin: 10px auto 30px;
@@ -130,7 +170,7 @@
 .cbt-mode .test-panel:not([hidden]) {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
-  height: calc(100vh - 180px);
+  height: calc(100vh - 120px);
   min-height: 680px;
   max-height: 1020px;
   padding: 0;
@@ -1470,7 +1510,7 @@
 }
 
 .writing-exam-view {
-  height: calc(100vh - 180px);
+  height: calc(100vh - 120px);
   min-height: 680px;
   max-height: 1020px;
   padding: 0;
@@ -1845,12 +1885,12 @@
   }
 
   .cbt-mode .test-panel:not([hidden]) {
-    height: calc(100vh - 165px);
+    height: calc(100vh - 120px);
     min-height: 610px;
   }
 
   .writing-exam-view {
-    height: calc(100vh - 165px);
+    height: calc(100vh - 120px);
     min-height: 610px;
   }
 
@@ -1926,6 +1966,36 @@
 @media (max-width: 620px) {
   .cbt-mode .topbar {
     padding: 7px 10px;
+  }
+
+  .cbt-mode .topbar.cbt-topbar-with-identity {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .cbt-mode .topbar.cbt-topbar-with-identity > h1 {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .cbt-mode .topbar .cbt-identity-panel {
+    grid-template-columns: minmax(88px, .58fr) minmax(135px, 1.42fr);
+    gap: 5px;
+    padding: 3px 4px 3px 6px;
+  }
+
+  .cbt-mode .topbar .cbt-identity-panel h2 {
+    font-size: 10px;
+  }
+
+  .cbt-mode .topbar .cbt-class-label {
+    font-size: 7px;
+  }
+
+  .cbt-mode .topbar .cbt-student-select select {
+    min-height: 30px;
+    padding: 4px 6px;
+    font-size: 9px;
   }
 
   .cbt-mode .topbar p,

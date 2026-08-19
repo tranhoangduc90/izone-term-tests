@@ -1176,7 +1176,7 @@
       state.serverTimeOffsetMs = Date.parse(response.serverNow) - Date.now();
       saveSession();
       elements.readingStudentName.textContent = state.studentName;
-      showNotice('Bạn đang làm phần Reading. Đồng hồ 60 phút đã chạy trên máy chủ.', 'success');
+      hideNotice();
       setStage('reading');
     } catch (error) {
       showNotice(`Chưa thể mở Reading: ${error.message}`, 'error');
@@ -1260,7 +1260,7 @@
       setBusy(elements.startWriting, true, 'Đang mở Writing...', 'Bắt đầu Writing');
       try {
         await saveWritingToServer('start');
-        showNotice('Writing đã bắt đầu. Bạn có 60 phút; bài viết được tự lưu trên hệ thống.', 'success');
+        hideNotice();
         setStage('writing');
       } catch (error) {
         state.writingStarted = wasStarted;
@@ -1451,9 +1451,8 @@
       if (state.completed && state.attemptToken) {
         if (writingConfig && !state.writingSubmitted) {
           setStage(state.writingStarted ? 'writing' : 'writing-prep');
-          showNotice(state.writingStarted
-            ? 'Bài Reading đã được ghi. Tiếp tục hoàn thành Writing để mở kết quả.'
-            : 'Bài Reading đã được ghi. Bắt đầu Writing khi bạn sẵn sàng.', 'success');
+          if (state.writingStarted) hideNotice();
+          else showNotice('Bài Reading đã được ghi. Bắt đầu Writing khi bạn sẵn sàng.', 'success');
           if (state.writingStarted && state.writingDirty) scheduleWritingSave(0);
         } else {
           setStage('result-ready');
@@ -1463,7 +1462,7 @@
       } else if (state.attemptToken) {
         if (state.readingDeadlineAt) {
           setStage('reading');
-          showNotice('Đang tiếp tục Reading. Đồng hồ máy chủ không dừng khi tải lại trang.', 'success');
+          hideNotice();
         } else {
           setStage('listening-saved');
           showNotice('Bài Listening đã được lưu. Bạn có thể tiếp tục Reading.', 'success');
