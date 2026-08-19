@@ -95,7 +95,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v13/);
+  assert.match(html, /cbt-v14/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -166,4 +166,5 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /Sao chép \$\{task\.label\}/);
   assert.match(source, /renderWritingSubmission/);
   assert.match(source, /await loadResult\(elements\.viewResult\)/);
+  assert.doesNotMatch(source, /addSummaryCard\('Tổng điểm'/);
 });
