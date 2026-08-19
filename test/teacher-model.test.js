@@ -8,6 +8,7 @@ import {
   writingStatusLabel,
   writingTaskStateLabel
 } from '../teacher/model.js';
+import { readFile } from 'node:fs/promises';
 
 test('tổng quan lớp chỉ tính trung bình từ học viên đã hoàn thành', () => {
   const students = [
@@ -41,4 +42,12 @@ test('Band trung bình có fallback và trạng thái dùng nhãn tiếng Việt
   assert.equal(statusLabel('not_started'), 'Chưa nộp');
   assert.equal(writingStatusLabel('review_required'), 'Cần kiểm tra');
   assert.equal(writingTaskStateLabel('retry_wait'), 'đang thử lại');
+});
+
+test('dashboard đổi phiên bản cả CSS, app và model để không dùng cache cũ', async () => {
+  const html = await readFile(new URL('../teacher/index.html', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
+  assert.match(html, /styles\.css\?rev=20260820-writing-monitor-v1/);
+  assert.match(html, /app\.js\?rev=20260820-writing-monitor-v1/);
+  assert.match(app, /model\.js\?rev=20260820-writing-monitor-v1/);
 });
