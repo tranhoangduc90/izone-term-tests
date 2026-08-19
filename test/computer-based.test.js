@@ -95,7 +95,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v15/);
+  assert.match(html, /cbt-v16/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -119,6 +119,11 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /cbt-listening-lobby/);
   assert.match(source, /previewTime >= 30/);
   assert.match(source, /previewHeard/);
+  assert.match(source, /restoreStudentSelection/);
+  assert.match(source, /hasSelectedStudent/);
+  assert.match(source, /updateStartAvailability/);
+  assert.match(source, /studentSelect\.disabled = true/);
+  assert.match(source, /Họ và tên đã xác nhận/);
   assert.match(source, /setListeningVisible\(false\)/);
   assert.match(source, /region\.hidden = !visible/);
   assert.match(source, /region\.inert = !visible/);
@@ -134,9 +139,13 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /requestSubmit\(autoSubmitButton\)/);
 
   const startHandlerIndex = source.indexOf("startButton.addEventListener('click'");
+  const restoreStudentIndex = source.indexOf('restoreStudentSelection()', startHandlerIndex);
   const officialPlayIndex = source.indexOf('await audio.play()', startHandlerIndex);
+  const lockStudentIndex = source.indexOf('lockStudentSelection()', officialPlayIndex);
   const revealIndex = source.indexOf('setListeningVisible(true)', startHandlerIndex);
+  assert.ok(restoreStudentIndex > startHandlerIndex && restoreStudentIndex < officialPlayIndex);
   assert.ok(startHandlerIndex >= 0 && officialPlayIndex > startHandlerIndex);
+  assert.ok(lockStudentIndex > officialPlayIndex && lockStudentIndex < revealIndex);
   assert.ok(revealIndex > officialPlayIndex, 'Chỉ được hiện đề sau khi audio chính thức phát thành công');
 });
 

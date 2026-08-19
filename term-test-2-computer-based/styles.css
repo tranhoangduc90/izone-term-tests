@@ -68,6 +68,14 @@
   min-height: 40px;
 }
 
+.cbt-identity-panel[data-student-locked="true"] select:disabled {
+  color: #123b6d;
+  background: #eef6ff;
+  border-color: #8db6e8;
+  cursor: default;
+  opacity: 1;
+}
+
 .cbt-mode .test-panel {
   overflow: hidden;
   border-radius: 12px;

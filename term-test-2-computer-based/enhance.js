@@ -560,6 +560,9 @@
   // Khi lỗi: phòng chờ vẫn giữ đề bị khóa, giải thích rõ và cho tải lại mà không làm mất draft.
   function setupBufferedAudio(listeningForm) {
     if (!listeningForm) return;
+    const studentSelect = document.getElementById('studentSelect');
+    const identityPanel = document.getElementById('identityView');
+    const identityTitle = document.getElementById('identityTitle');
     const examRegions = [
       listeningForm.form.querySelector('.cbt-semantic-stage'),
       listeningForm.form.querySelector('.cbt-question-nav-wrap')
@@ -701,6 +704,53 @@
     let downloadController = null;
     let objectUrl = '';
 
+    function readSavedStudentRef() {
+      for (const storage of [sessionStorage, localStorage]) {
+        try {
+          const ref = String(JSON.parse(storage.getItem(submissionStorageKey) || '{}').studentRef || '');
+          if (ref) return ref;
+        } catch {
+          // Tiếp tục với nguồn bộ nhớ còn lại nếu dữ liệu trình duyệt bị lỗi.
+        }
+      }
+      return '';
+    }
+
+    function restoreStudentSelection() {
+      if (!studentSelect) return '';
+      const savedRef = readSavedStudentRef();
+      if (savedRef && [...studentSelect.options].some(option => option.value === savedRef)) {
+        studentSelect.value = savedRef;
+      }
+      return studentSelect.value;
+    }
+
+    function hasSelectedStudent() {
+      return Boolean(restoreStudentSelection());
+    }
+
+    function updateStartAvailability() {
+      const audioReady = ready && (examStarted || previewHeard);
+      const identityReady = hasSelectedStudent();
+      startButton.disabled = !(audioReady && identityReady);
+      if (audioReady && !identityReady) {
+        startNotice.textContent = 'Hãy chọn họ và tên ở phía trên trước khi bắt đầu thi Listening.';
+      } else {
+        startNotice.textContent = examStarted
+          ? 'Audio sẽ tiếp tục từ vị trí gần nhất đã lưu.'
+          : 'Sau khi bắt đầu, họ tên được khóa và bạn không thể quay lại chế độ nghe thử.';
+      }
+    }
+
+    function lockStudentSelection() {
+      if (!studentSelect || !restoreStudentSelection()) return false;
+      studentSelect.disabled = true;
+      studentSelect.setAttribute('aria-label', 'Họ và tên đã xác nhận');
+      if (identityPanel) identityPanel.dataset.studentLocked = 'true';
+      if (identityTitle) identityTitle.textContent = 'Họ và tên đã xác nhận';
+      return true;
+    }
+
     function setStepState(step, state) {
       step.dataset.state = state;
     }
@@ -776,18 +826,17 @@
         previewStatus.textContent = 'Chế độ nghe thử đã đóng vì bài thi đã bắt đầu.';
         setStepState(previewStep.step, 'skipped');
         setStepState(startStep.step, 'active');
-        startButton.disabled = false;
       } else {
         downloadStatus.textContent = 'Đã tải đủ audio · 100%.';
         previewButton.hidden = false;
         previewButton.disabled = false;
-        startButton.disabled = !previewHeard;
         setStepState(previewStep.step, previewHeard ? 'complete' : 'active');
         setStepState(startStep.step, previewHeard ? 'active' : 'locked');
         previewStatus.textContent = previewHeard
           ? 'Đã nghe thử. Khi âm lượng vừa tai, bạn có thể bắt đầu thi.'
           : 'Bấm “Nghe thử 30 giây đầu” để kiểm tra âm lượng.';
       }
+      updateStartAvailability();
     });
     audio.addEventListener('timeupdate', () => {
       if (previewing && !examStarted) {
@@ -916,10 +965,10 @@
         await audio.play();
         previewHeard = true;
         previewButton.textContent = 'Dừng nghe thử';
-        startButton.disabled = false;
         setStepState(previewStep.step, 'complete');
         setStepState(startStep.step, 'active');
         previewStatus.textContent = 'Đang nghe thử · 00:00 / 00:30';
+        updateStartAvailability();
       } catch {
         previewing = false;
         previewStatus.textContent = 'Trình duyệt chưa cho phép phát. Hãy nhấn lại nút nghe thử.';
@@ -927,6 +976,13 @@
     });
     startButton.addEventListener('click', async () => {
       if (!ready || (!examStarted && !previewHeard)) return;
+      if (!restoreStudentSelection()) {
+        studentSelect?.reportValidity();
+        studentSelect?.focus();
+        identityPanel?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        updateStartAvailability();
+        return;
+      }
       allowPause = true;
       audio.pause();
       previewing = false;
@@ -939,6 +995,7 @@
         uiState.audio.time = audio.currentTime;
         lastSavedSecond = Math.floor(audio.currentTime);
         allowPause = false;
+        lockStudentSelection();
         setListeningVisible(true);
         updateExamStatus('Đang phát bài thi');
         saveUiState();
@@ -968,6 +1025,10 @@
     }
     volumeInput.addEventListener('input', () => applyVolume(volumeInput.value));
     examVolumeInput.addEventListener('input', () => applyVolume(examVolumeInput.value));
+    studentSelect?.addEventListener('change', updateStartAvailability);
+    if (studentSelect) {
+      new MutationObserver(updateStartAvailability).observe(studentSelect, { childList: true });
+    }
     listeningForm.form.addEventListener('submit', () => {
       allowPause = true;
       audio.pause();
