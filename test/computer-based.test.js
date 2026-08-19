@@ -95,7 +95,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v14/);
+  assert.match(html, /cbt-v15/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -128,6 +128,7 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /readingTimer\.deadline/);
   assert.match(source, /readingTimer\.attemptToken/);
   assert.match(source, /submissionStorageKey/);
+  assert.match(source, /\[sessionStorage, localStorage\]/);
   assert.match(source, /Math\.ceil\(remainingMs \/ 60_000\)/);
   assert.match(source, /minutes <= 10 && minutes > 0/);
   assert.match(source, /requestSubmit\(autoSubmitButton\)/);
@@ -158,6 +159,13 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /setStage\('writing-prep'\)/);
   assert.match(source, /writingStarted/);
   assert.match(source, /writingSubmitted/);
+  assert.match(source, /writingDirty/);
+  assert.match(source, /\[sessionStorage, localStorage\]/);
+  assert.match(source, /\/api\/term-tests\/writing/);
+  assert.match(source, /saveWritingToServer\('draft'\)/);
+  assert.match(source, /saveWritingToServer\('submit'\)/);
+  assert.match(source, /applyWritingFromServer/);
+  assert.match(source, /step\.dataset\.progress !== activeProgress && completed/);
   assert.match(source, /setupWritingExam/);
   assert.match(source, /role', 'separator'/);
   assert.match(source, /setPointerCapture/);

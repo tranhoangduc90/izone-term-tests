@@ -13,16 +13,19 @@
   const submissionStorageKey = 'izone-test:' + testConfig.slug + ':' + classCode;
   const uiState = readUiState();
 
-  // Dữ liệu vào: phần đang mở, câu đánh dấu, cỡ chữ, vị trí audio và hạn giờ Reading trong tab hiện tại.
+  // Dữ liệu vào: phần đang mở, câu đánh dấu, cỡ chữ, vị trí audio và hạn giờ Reading trên máy hiện tại.
   // Việc chính: đọc an toàn rồi bổ sung giá trị mặc định cho Listening và Reading.
   // Kết quả: tải lại trang vẫn trở về đúng ngữ cảnh học viên đang làm.
   // Khi lỗi: dùng cấu hình mặc định; luồng lưu bài của shared/app.js không bị ảnh hưởng.
   function readUiState() {
     let stored = {};
-    try {
-      stored = JSON.parse(sessionStorage.getItem(uiStorageKey) || '{}');
-    } catch {
-      stored = {};
+    for (const storage of [sessionStorage, localStorage]) {
+      try {
+        stored = JSON.parse(storage.getItem(uiStorageKey) || '{}');
+        if (Object.keys(stored).length) break;
+      } catch {
+        stored = {};
+      }
     }
     return {
       flags: {
@@ -50,10 +53,13 @@
   }
 
   function saveUiState() {
-    try {
-      sessionStorage.setItem(uiStorageKey, JSON.stringify(uiState));
-    } catch {
-      // sessionStorage có thể bị chặn; bài làm chính vẫn được shared/app.js quản lý.
+    const serialized = JSON.stringify(uiState);
+    for (const storage of [sessionStorage, localStorage]) {
+      try {
+        storage.setItem(uiStorageKey, serialized);
+      } catch {
+        // Bộ nhớ trình duyệt có thể bị chặn; bài làm chính vẫn được shared/app.js quản lý.
+      }
     }
   }
 
@@ -548,7 +554,7 @@
     return { form, source };
   }
 
-  // Dữ liệu vào: file audio gốc, giao diện Listening và trạng thái phiên thi trong sessionStorage.
+  // Dữ liệu vào: file audio gốc, giao diện Listening và trạng thái phiên thi trong bộ nhớ trình duyệt.
   // Việc chính: ẩn toàn bộ đề, tải đủ audio, cho nghe thử tối đa 30 giây rồi mới bắt đầu bài thật từ giây 0.
   // Kết quả: học viên không thể xem trước đề; khi audio chính thức phát thành công thì đề và ô trả lời mới xuất hiện.
   // Khi lỗi: phòng chờ vẫn giữ đề bị khóa, giải thích rõ và cho tải lại mà không làm mất draft.
@@ -1017,11 +1023,15 @@
     let lastAutoSubmitAttempt = 0;
 
     function readAttemptToken() {
-      try {
-        return String(JSON.parse(sessionStorage.getItem(submissionStorageKey) || '{}').attemptToken || '');
-      } catch {
-        return '';
+      for (const storage of [sessionStorage, localStorage]) {
+        try {
+          const token = String(JSON.parse(storage.getItem(submissionStorageKey) || '{}').attemptToken || '');
+          if (token) return token;
+        } catch {
+          // Tiếp tục kiểm tra nguồn bộ nhớ còn lại.
+        }
       }
+      return '';
     }
 
     function stopTimer() {
