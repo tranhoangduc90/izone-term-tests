@@ -5,7 +5,7 @@
   const testConfig = window.TERM_TEST_CONFIG;
   const query = new URLSearchParams(window.location.search);
   const classCode = (query.get('class') || '').trim().toUpperCase();
-  const isDemo = ['complete', 'listening-only'].includes(query.get('demo'));
+  const isDemo = ['complete', 'listening-only', 'writing-prep', 'writing'].includes(query.get('demo'));
 
   if (!contentConfig || !testConfig || contentConfig.baseTestSlug !== testConfig.slug) return;
 
@@ -982,7 +982,7 @@
 
   // Dữ liệu vào: form Reading, mốc kết thúc đã lưu và trạng thái gửi bài của shared/app.js.
   // Việc chính: bắt đầu 60 phút khi đề Reading xuất hiện, cảnh báo 10 phút cuối và tự gửi khi hết giờ.
-  // Kết quả: tải lại trang không được cộng lại thời gian; bài hết giờ tự chấm, đồng bộ Portal và mở phân tích.
+  // Kết quả: tải lại trang không được cộng lại thời gian; bài hết giờ tự chấm, đồng bộ Portal rồi chuyển sang Writing.
   // Khi lỗi mạng: giữ nguyên draft và thử nộp lại mỗi 15 giây trong lúc trang Reading còn mở.
   function setupReadingTimer(readingForm) {
     if (!readingForm) return;
@@ -1088,7 +1088,7 @@
   const topbarTitle = document.querySelector('.topbar h1');
   const topbarIntro = document.querySelector('.topbar h1 + p');
   if (topbarTitle) topbarTitle.textContent = contentConfig.title;
-  if (topbarIntro) topbarIntro.textContent = 'Đề và bài làm nằm trong cùng một giao diện HTML như bài thi IELTS trên máy. Hệ thống lưu bài, chấm điểm và trả kết quả vẫn giữ nguyên.';
+  if (topbarIntro) topbarIntro.textContent = 'Listening, Reading và Writing nằm trong cùng một trải nghiệm thi trên máy. Kết quả Listening và Reading chỉ mở sau khi nộp Writing.';
 
   const loadingLabel = document.querySelector('#loadingView strong');
   const listeningSavedCopy = document.querySelector('#listeningSavedView > p:not(.eyebrow)');

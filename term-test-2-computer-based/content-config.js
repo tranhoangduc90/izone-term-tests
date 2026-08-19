@@ -405,6 +405,31 @@
           `
         }
       ]
+    },
+    writing: {
+      tasks: [
+        {
+          id: 'task1',
+          label: 'Task 1',
+          recommendedMinutes: 20,
+          minimumWords: 150,
+          initialSplit: 47,
+          prompt: 'The table below shows the change in the number of people engaged in various physical activities between 2001 and 2009 in Australia (in millions).',
+          followUp: 'Summarize the information by selecting and reporting the main features, and make comparisons where relevant.',
+          image: {
+            src: './assets/writing/task-1-table.png',
+            alt: 'Table showing people engaged in running, aerobics, tennis, cycling and swimming in Australia in 2001, 2005 and 2009, including percentage change.'
+          }
+        },
+        {
+          id: 'task2',
+          label: 'Task 2',
+          recommendedMinutes: 40,
+          minimumWords: 250,
+          initialSplit: 30,
+          prompt: 'Fewer and fewer people today write by hand using a pen, pencil or brush. What are the reasons for this? Is the decline in writing by hand a negative or positive development?'
+        }
+      ]
     }
   };
 

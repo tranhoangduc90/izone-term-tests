@@ -22,6 +22,7 @@ test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả l
   assert.equal(config.baseTestSlug, 'term-test-2');
   assert.equal(config.listening.sections.length, 4);
   assert.equal(config.reading.sections.length, 3);
+  assert.equal(config.writing.tasks.length, 2);
 
   const listeningSlots = Array.from(config.listening.sections).flatMap(section => collectSlots(section, 'html'));
   const readingSlots = Array.from(config.reading.sections).flatMap(section => collectSlots(section, 'questionsHtml'));
@@ -55,7 +56,7 @@ test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả l
     assert.ok(section.passageHtml.length > 2_000, 'Passage HTML quá ngắn: ' + section.label);
   }
 
-  assert.equal(/\.png|page-\d+\.png|inline-on-paper/i.test(source), false, 'Giao diện HTML không được phụ thuộc ảnh scan');
+  assert.equal(/page-\d+\.png|inline-on-paper/i.test(source), false, 'Listening và Reading HTML không được phụ thuộc ảnh scan');
   assert.match(source, /cbt-question-card/);
   assert.match(source, /cbt-test-table/);
   assert.equal(/correctAnswer|answerKey|accepted\s*:/i.test(source), false, 'Cấu hình nội dung không được chứa đáp án đúng');
@@ -64,6 +65,20 @@ test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả l
   assert.ok(audioInfo.isFile(), 'Thiếu audio Listening');
   assert.ok(audioInfo.size > 10_000, 'Audio quá nhỏ hoặc hỏng');
   assert.ok(audioInfo.size < 25 * 1024 * 1024, 'Audio cần được tối ưu trước khi đẩy Git');
+
+  const [task1, task2] = Array.from(config.writing.tasks);
+  assert.equal(task1.id, 'task1');
+  assert.equal(task1.minimumWords, 150);
+  assert.equal(task1.recommendedMinutes, 20);
+  assert.match(task1.prompt, /physical activities between 2001 and 2009/i);
+  assert.match(task1.followUp, /selecting and reporting the main features/i);
+  assert.equal(task2.id, 'task2');
+  assert.equal(task2.minimumWords, 250);
+  assert.equal(task2.recommendedMinutes, 40);
+  assert.match(task2.prompt, /decline in writing by hand/i);
+  const task1Image = await stat(new URL(task1.image.src, routeUrl));
+  assert.ok(task1Image.isFile(), 'Thiếu biểu đồ Writing Task 1');
+  assert.ok(task1Image.size > 10_000, 'Biểu đồ Writing Task 1 quá nhỏ hoặc hỏng');
 });
 
 test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cường giao diện', async () => {
@@ -80,7 +95,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v10/);
+  assert.match(html, /cbt-v13/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -129,7 +144,7 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /viewListeningResult/);
   assert.match(source, /continueReadingFromResult/);
   assert.match(source, /Reading chưa bị tính là 0 điểm/);
-  assert.match(source, /\['complete', 'listening-only'\]/);
+  assert.match(source, /\['complete', 'listening-only', 'writing-prep', 'writing'\]/);
   assert.match(source, /result\.reading\)/);
   assert.match(source, /portalSyncStatus/);
   assert.match(source, /skillPerformanceSections/);
@@ -140,5 +155,15 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /readingSubmitting/);
   assert.match(source, /!automatic && !confirmIncomplete/);
   assert.match(source, /term-test:reading-submitted/);
-  assert.match(source, /if \(automatic\) await loadResult\(elements\.viewResult\)/);
+  assert.match(source, /setStage\('writing-prep'\)/);
+  assert.match(source, /writingStarted/);
+  assert.match(source, /writingSubmitted/);
+  assert.match(source, /setupWritingExam/);
+  assert.match(source, /role', 'separator'/);
+  assert.match(source, /setPointerCapture/);
+  assert.match(source, /spellcheck = false/);
+  assert.match(source, /navigator\.clipboard/);
+  assert.match(source, /Sao chép \$\{task\.label\}/);
+  assert.match(source, /renderWritingSubmission/);
+  assert.match(source, /await loadResult\(elements\.viewResult\)/);
 });

@@ -7,14 +7,16 @@
   const query = new URLSearchParams(window.location.search);
   const classCode = (query.get('class') || '').trim().toUpperCase();
   const requestedDemo = query.get('demo') || '';
+  const writingConfig = window.TERM_TEST_CONTENT?.writing || null;
   const demoMode = window.TERM_TEST_CONTENT?.variant === 'semantic-html'
-    && ['complete', 'listening-only'].includes(requestedDemo)
+    && ['complete', 'listening-only', 'writing-prep', 'writing'].includes(requestedDemo)
     ? requestedDemo
     : '';
 
   if (!testConfig || !appConfig || !root) return;
 
   const storageKey = `izone-test:${testConfig.slug}:${classCode}`;
+  const restoredSession = readSession();
   const state = {
     stage: 'loading',
     roster: [],
@@ -24,9 +26,24 @@
     clientSubmissionId: '',
     attemptToken: '',
     completed: false,
-    drafts: { listening: {}, reading: {} },
+    writingStarted: false,
+    writingSubmitted: false,
+    drafts: { listening: {}, reading: {}, writing: { task1: '', task2: '' } },
+    writingLayout: { activeTask: 'task1', splits: {} },
     result: null,
-    ...readSession()
+    ...restoredSession,
+    drafts: {
+      listening: { ...(restoredSession.drafts?.listening || {}) },
+      reading: { ...(restoredSession.drafts?.reading || {}) },
+      writing: {
+        task1: String(restoredSession.drafts?.writing?.task1 || ''),
+        task2: String(restoredSession.drafts?.writing?.task2 || '')
+      }
+    },
+    writingLayout: {
+      activeTask: String(restoredSession.writingLayout?.activeTask || 'task1'),
+      splits: { ...(restoredSession.writingLayout?.splits || {}) }
+    }
   };
 
   function readSession() {
@@ -44,9 +61,53 @@
       clientSubmissionId: state.clientSubmissionId,
       attemptToken: state.attemptToken,
       completed: state.completed,
-      drafts: state.drafts
+      writingStarted: state.writingStarted,
+      writingSubmitted: state.writingSubmitted,
+      drafts: state.drafts,
+      writingLayout: state.writingLayout
     }));
   }
+
+  const progressMarkup = writingConfig
+    ? `<div class="progress-step" data-progress="listening">1. Listening</div>
+        <div class="progress-step" data-progress="reading">2. Reading</div>
+        <div class="progress-step" data-progress="writing">3. Writing</div>
+        <div class="progress-step" data-progress="result">4. Kết quả</div>`
+    : `<div class="progress-step" data-progress="listening">1. Listening</div>
+        <div class="progress-step" data-progress="reading">2. Reading</div>
+        <div class="progress-step" data-progress="result">3. Kết quả</div>`;
+
+  const writingMarkup = writingConfig ? `
+      <section class="panel transition-card writing-prep-card" id="writingPrepView" hidden>
+        <div class="transition-icon">✓</div>
+        <p class="eyebrow">Reading đã được ghi nhận</p>
+        <h2>Chuẩn bị phần Writing</h2>
+        <p>Kết quả Listening và Reading đang được giữ kín. Khi sẵn sàng, hãy bắt đầu Writing và hoàn thành cả hai Task.</p>
+        <ul class="writing-prep-list">
+          <li>Task 1: nên dành khoảng 20 phút và viết ít nhất 150 từ.</li>
+          <li>Task 2: nên dành khoảng 40 phút và viết ít nhất 250 từ.</li>
+          <li>Bài viết được tự lưu trong tab này; không đóng tab trước khi nộp.</li>
+        </ul>
+        <button class="button button-primary" id="startWriting" type="button">Bắt đầu Writing</button>
+      </section>
+
+      <form class="panel writing-exam-view" id="writingView" hidden>
+        <header class="writing-exam-header">
+          <div>
+            <p class="eyebrow">Phần 3 · Academic Writing</p>
+            <h2>Writing Task 1 &amp; Task 2</h2>
+          </div>
+          <nav class="writing-task-tabs" id="writingTaskTabs" aria-label="Chọn Writing Task"></nav>
+          <button class="button button-primary writing-submit" id="submitWriting" type="submit">Nộp bài Writing</button>
+        </header>
+        <div class="writing-workspace" id="writingWorkspace"></div>
+        <footer class="writing-task-footer">
+          <button class="button button-secondary" id="previousWritingTask" type="button">← Previous Task</button>
+          <span id="writingTaskPosition">Task 1 / 2</span>
+          <button class="button button-primary" id="nextWritingTask" type="button">Next Task →</button>
+        </footer>
+      </form>
+  ` : '';
 
   root.innerHTML = `
     <header class="topbar">
@@ -56,9 +117,7 @@
     </header>
     <main class="page-shell">
       <div class="progress" aria-label="Tiến độ bài test">
-        <div class="progress-step" data-progress="listening">1. Listening</div>
-        <div class="progress-step" data-progress="reading">2. Reading</div>
-        <div class="progress-step" data-progress="result">3. Kết quả</div>
+        ${progressMarkup}
       </div>
       <div class="notice" id="notice" role="status">Đang tải danh sách lớp...</div>
 
@@ -122,11 +181,15 @@
         </div>
       </form>
 
+      ${writingMarkup}
+
       <section class="panel transition-card" id="resultReadyView" hidden>
         <div class="transition-icon">✓</div>
-        <p class="eyebrow">Đã chấm xong</p>
+        <p class="eyebrow">${writingConfig ? 'Đã nộp Writing' : 'Đã chấm xong'}</p>
         <h2>Kết quả của bạn đã sẵn sàng</h2>
-        <p>Cả Listening và Reading đã được lưu, chấm và phân tích theo từng dạng bài.</p>
+        <p>${writingConfig
+          ? 'Listening và Reading đã được chấm, phân tích; hai bài Writing được giữ nguyên để bạn sao chép.'
+          : 'Cả Listening và Reading đã được lưu, chấm và phân tích theo từng dạng bài.'}</p>
         <button class="button button-primary" id="viewResult" type="button">Xem kết quả</button>
       </section>
 
@@ -143,6 +206,7 @@
         <div class="form-actions result-actions">
           <button class="button button-primary" id="continueReadingFromResult" type="button" hidden>Tiếp tục làm Reading</button>
         </div>
+        <div id="writingSubmissionResult" hidden></div>
         <div id="questionDetails"></div>
         <div class="skill-performance-list" id="skillPerformanceSections"></div>
       </section>
@@ -155,7 +219,9 @@
     'listeningSavedView', 'viewListeningResult', 'startReading', 'readingView', 'readingTitle', 'readingInstructions',
     'readingQuestions', 'readingCount', 'readingStudentName', 'submitReading', 'resultReadyView',
     'viewResult', 'resultView', 'resultStudentName', 'resultMeta', 'summaryGrid',
-    'skillPerformanceSections', 'questionDetails', 'resultStatus', 'continueReadingFromResult'
+    'skillPerformanceSections', 'questionDetails', 'resultStatus', 'continueReadingFromResult',
+    'writingPrepView', 'startWriting', 'writingView', 'writingTaskTabs', 'writingWorkspace', 'submitWriting',
+    'previousWritingTask', 'nextWritingTask', 'writingTaskPosition', 'writingSubmissionResult'
   ].map(id => [id, document.getElementById(id)]));
 
   const progressSteps = [...document.querySelectorAll('[data-progress]')];
@@ -165,9 +231,11 @@
     elements.listeningView,
     elements.listeningSavedView,
     elements.readingView,
+    elements.writingPrepView,
+    elements.writingView,
     elements.resultReadyView,
     elements.resultView
-  ];
+  ].filter(Boolean);
 
   function showNotice(message, kind = '') {
     elements.notice.textContent = message;
@@ -179,8 +247,10 @@
     for (const view of views) view.hidden = true;
     const activeProgress = stage === 'listening' || stage === 'listening-saved'
       ? 'listening'
-      : stage === 'reading' ? 'reading' : stage === 'result-ready' || stage === 'result' ? 'result' : '';
-    const order = ['listening', 'reading', 'result'];
+      : stage === 'reading' ? 'reading'
+        : stage === 'writing-prep' || stage === 'writing' ? 'writing'
+          : stage === 'result-ready' || stage === 'result' ? 'result' : '';
+    const order = writingConfig ? ['listening', 'reading', 'writing', 'result'] : ['listening', 'reading', 'result'];
     const activeIndex = order.indexOf(activeProgress);
     for (const step of progressSteps) {
       const index = order.indexOf(step.dataset.progress);
@@ -195,6 +265,8 @@
     }
     if (stage === 'listening-saved') elements.listeningSavedView.hidden = false;
     if (stage === 'reading') elements.readingView.hidden = false;
+    if (stage === 'writing-prep' && elements.writingPrepView) elements.writingPrepView.hidden = false;
+    if (stage === 'writing' && elements.writingView) elements.writingView.hidden = false;
     if (stage === 'result-ready') elements.resultReadyView.hidden = false;
     if (stage === 'result') elements.resultView.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -317,6 +389,275 @@
   function setBusy(button, busy, busyText, normalText) {
     button.disabled = busy;
     button.textContent = busy ? busyText : normalText;
+  }
+
+  function countWords(value) {
+    const normalized = String(value || '').trim();
+    return normalized ? normalized.split(/\s+/u).length : 0;
+  }
+
+  function setupWritingExam() {
+    const tasks = Array.from(writingConfig?.tasks || []);
+    if (!tasks.length || !elements.writingWorkspace || !elements.writingTaskTabs) return;
+
+    const panels = [];
+    const tabs = [];
+
+    function activateTask(index, focusEditor = false) {
+      const safeIndex = Math.min(tasks.length - 1, Math.max(0, Number(index) || 0));
+      const activeTask = tasks[safeIndex];
+      state.writingLayout.activeTask = activeTask.id;
+      panels.forEach((panel, panelIndex) => { panel.hidden = panelIndex !== safeIndex; });
+      tabs.forEach((tab, tabIndex) => {
+        const active = tabIndex === safeIndex;
+        tab.classList.toggle('is-active', active);
+        tab.setAttribute('aria-current', active ? 'true' : 'false');
+      });
+      elements.previousWritingTask.disabled = safeIndex === 0;
+      elements.nextWritingTask.disabled = safeIndex === tasks.length - 1;
+      elements.writingTaskPosition.textContent = `Task ${safeIndex + 1} / ${tasks.length}`;
+      saveSession();
+      if (focusEditor) panels[safeIndex].querySelector('textarea')?.focus();
+    }
+
+    tasks.forEach((task, index) => {
+      const tab = makeWritingTab(task, index);
+      const panel = makeWritingPanel(task);
+      tab.addEventListener('click', () => activateTask(index, true));
+      tabs.push(tab);
+      panels.push(panel);
+      elements.writingTaskTabs.append(tab);
+      elements.writingWorkspace.append(panel);
+    });
+
+    function makeWritingTab(task, index) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'writing-task-tab';
+      button.textContent = task.label || `Task ${index + 1}`;
+      return button;
+    }
+
+    function makeWritingPanel(task) {
+      const panel = document.createElement('section');
+      panel.className = 'writing-task-panel';
+      panel.dataset.writingTaskPanel = task.id;
+
+      const split = document.createElement('div');
+      split.className = 'writing-split';
+      const initialSplit = Number(state.writingLayout.splits[task.id] || task.initialSplit || 50);
+
+      const promptPane = document.createElement('article');
+      promptPane.className = 'writing-prompt-pane';
+      const promptHeader = document.createElement('header');
+      promptHeader.className = 'writing-pane-header';
+      const promptLabel = document.createElement('span');
+      promptLabel.textContent = task.label;
+      const promptTitle = document.createElement('strong');
+      promptTitle.textContent = 'Đề bài';
+      promptHeader.append(promptLabel, promptTitle);
+      const promptBody = document.createElement('div');
+      promptBody.className = 'writing-prompt-body';
+      const guidance = document.createElement('p');
+      guidance.className = 'writing-guidance';
+      guidance.textContent = `You should spend about ${task.recommendedMinutes} minutes on this task.`;
+      const instruction = document.createElement('p');
+      instruction.className = 'writing-instruction';
+      instruction.textContent = task.prompt;
+      promptBody.append(guidance, instruction);
+      if (task.followUp) {
+        const followUp = document.createElement('p');
+        followUp.className = 'writing-follow-up';
+        followUp.textContent = task.followUp;
+        promptBody.append(followUp);
+      }
+      if (task.image) {
+        const figure = document.createElement('figure');
+        figure.className = 'writing-task-figure';
+        const image = document.createElement('img');
+        image.src = task.image.src;
+        image.alt = task.image.alt;
+        figure.append(image);
+        promptBody.append(figure);
+      }
+      const minimum = document.createElement('p');
+      minimum.className = 'writing-minimum';
+      minimum.textContent = `Write at least ${task.minimumWords} words.`;
+      promptBody.append(minimum);
+      promptPane.append(promptHeader, promptBody);
+
+      const separator = document.createElement('button');
+      separator.type = 'button';
+      separator.className = 'writing-separator';
+      separator.setAttribute('role', 'separator');
+      separator.setAttribute('aria-orientation', 'vertical');
+      separator.setAttribute('aria-label', `Kéo để đổi độ rộng đề và bài làm ${task.label}`);
+      separator.setAttribute('aria-valuemin', '28');
+      separator.setAttribute('aria-valuemax', '70');
+      separator.title = 'Kéo ngang để đổi độ rộng hai khung';
+      separator.innerHTML = '<span aria-hidden="true">⋮⋮</span>';
+
+      const answerPane = document.createElement('section');
+      answerPane.className = 'writing-answer-pane';
+      const answerHeader = document.createElement('header');
+      answerHeader.className = 'writing-pane-header';
+      const answerLabel = document.createElement('span');
+      answerLabel.textContent = task.label;
+      const answerTitle = document.createElement('strong');
+      answerTitle.textContent = 'Bài làm của bạn';
+      answerHeader.append(answerLabel, answerTitle);
+      const editor = document.createElement('textarea');
+      editor.className = 'writing-editor';
+      editor.dataset.writingTask = task.id;
+      editor.value = state.drafts.writing[task.id] || '';
+      editor.spellcheck = false;
+      editor.autocomplete = 'off';
+      editor.setAttribute('autocapitalize', 'off');
+      editor.setAttribute('autocorrect', 'off');
+      editor.setAttribute('aria-label', `Bài làm ${task.label}`);
+      const editorMeta = document.createElement('footer');
+      editorMeta.className = 'writing-editor-meta';
+      const autosave = document.createElement('span');
+      autosave.textContent = 'Tự lưu trong tab này';
+      const wordCount = document.createElement('strong');
+      wordCount.textContent = `${countWords(editor.value)} từ`;
+      editorMeta.append(autosave, wordCount);
+      editor.addEventListener('input', () => {
+        state.drafts.writing[task.id] = editor.value;
+        wordCount.textContent = `${countWords(editor.value)} từ`;
+        saveSession();
+      });
+      answerPane.append(answerHeader, editor, editorMeta);
+      split.append(promptPane, separator, answerPane);
+      panel.append(split);
+
+      function applySplit(value) {
+        const percentage = Math.min(70, Math.max(28, Math.round(Number(value) * 10) / 10));
+        split.style.setProperty('--writing-left', `${percentage}%`);
+        separator.setAttribute('aria-valuenow', String(Math.round(percentage)));
+        state.writingLayout.splits[task.id] = percentage;
+        saveSession();
+      }
+
+      separator.addEventListener('pointerdown', event => {
+        separator.setPointerCapture(event.pointerId);
+        separator.classList.add('is-dragging');
+      });
+      separator.addEventListener('pointermove', event => {
+        if (!separator.hasPointerCapture(event.pointerId)) return;
+        const bounds = split.getBoundingClientRect();
+        applySplit((event.clientX - bounds.left) * 100 / bounds.width);
+      });
+      const stopDragging = event => {
+        if (separator.hasPointerCapture(event.pointerId)) separator.releasePointerCapture(event.pointerId);
+        separator.classList.remove('is-dragging');
+      };
+      separator.addEventListener('pointerup', stopDragging);
+      separator.addEventListener('pointercancel', stopDragging);
+      separator.addEventListener('keydown', event => {
+        const current = Number(separator.getAttribute('aria-valuenow')) || initialSplit;
+        if (event.key === 'ArrowLeft') applySplit(current - 2);
+        else if (event.key === 'ArrowRight') applySplit(current + 2);
+        else if (event.key === 'Home') applySplit(28);
+        else if (event.key === 'End') applySplit(70);
+        else return;
+        event.preventDefault();
+      });
+      applySplit(initialSplit);
+      return panel;
+    }
+
+    const initialIndex = Math.max(0, tasks.findIndex(task => task.id === state.writingLayout.activeTask));
+    activateTask(initialIndex, false);
+    elements.previousWritingTask.addEventListener('click', () => {
+      const index = tasks.findIndex(task => task.id === state.writingLayout.activeTask);
+      activateTask(index - 1, true);
+    });
+    elements.nextWritingTask.addEventListener('click', () => {
+      const index = tasks.findIndex(task => task.id === state.writingLayout.activeTask);
+      activateTask(index + 1, true);
+    });
+  }
+
+  async function copyWritingText(value) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch {
+        // Một số trình duyệt chặn Clipboard API; dùng ô tạm trong cùng thao tác bấm nút.
+      }
+    }
+    const fallback = document.createElement('textarea');
+    fallback.value = value;
+    fallback.style.position = 'fixed';
+    fallback.style.opacity = '0';
+    document.body.append(fallback);
+    fallback.select();
+    const copied = document.execCommand('copy');
+    fallback.remove();
+    if (!copied) throw new Error('COPY_FAILED');
+  }
+
+  function renderWritingSubmission() {
+    if (!writingConfig || !elements.writingSubmissionResult) return;
+    elements.writingSubmissionResult.hidden = !state.writingSubmitted;
+    if (!state.writingSubmitted) {
+      elements.writingSubmissionResult.replaceChildren();
+      return;
+    }
+
+    const section = document.createElement('section');
+    section.className = 'writing-result-section';
+    const heading = document.createElement('header');
+    heading.className = 'writing-result-heading';
+    const headingCopy = document.createElement('div');
+    const eyebrow = document.createElement('span');
+    eyebrow.textContent = 'Bản nộp nguyên văn';
+    const title = document.createElement('h3');
+    title.textContent = 'Bài làm Writing';
+    headingCopy.append(eyebrow, title);
+    const note = document.createElement('p');
+    note.textContent = 'Phần này chưa chấm điểm. Dùng nút riêng của từng Task để sao chép nội dung.';
+    heading.append(headingCopy, note);
+
+    const cards = document.createElement('div');
+    cards.className = 'writing-result-grid';
+    for (const task of Array.from(writingConfig.tasks || [])) {
+      const value = state.drafts.writing[task.id] || '';
+      const card = document.createElement('article');
+      card.className = 'writing-result-card';
+      const cardHeader = document.createElement('header');
+      const cardTitle = document.createElement('div');
+      const label = document.createElement('h4');
+      label.textContent = task.label;
+      const words = document.createElement('span');
+      words.textContent = `${countWords(value)} từ`;
+      cardTitle.append(label, words);
+      const copyButton = document.createElement('button');
+      copyButton.type = 'button';
+      copyButton.className = 'button button-secondary writing-copy-button';
+      copyButton.textContent = `Sao chép ${task.label}`;
+      copyButton.addEventListener('click', async () => {
+        const normalText = copyButton.textContent;
+        try {
+          await copyWritingText(value);
+          copyButton.textContent = 'Đã sao chép ✓';
+          window.setTimeout(() => { copyButton.textContent = normalText; }, 1800);
+        } catch {
+          copyButton.textContent = 'Không sao chép được';
+          window.setTimeout(() => { copyButton.textContent = normalText; }, 2200);
+        }
+      });
+      cardHeader.append(cardTitle, copyButton);
+      const essay = document.createElement('div');
+      essay.className = 'writing-result-text';
+      essay.textContent = value || 'Học viên không nhập nội dung.';
+      card.append(cardHeader, essay);
+      cards.append(card);
+    }
+    section.append(heading, cards);
+    elements.writingSubmissionResult.replaceChildren(section);
   }
 
   function addSummaryCard(label, value) {
@@ -504,6 +845,7 @@
       ? 'Bạn đã hoàn thành cả Listening và Reading. Kết quả và phân tích được tách riêng theo từng kỹ năng ở bên dưới.'
       : 'Listening đã được chấm và lưu riêng. Phân tích dưới đây chỉ dùng bài Listening; Reading chưa bị tính là 0 điểm.';
     elements.continueReadingFromResult.hidden = hasReading || Boolean(demoMode);
+    renderWritingSubmission();
     const detailBlocks = [renderDetailBlock('Listening', result.listening.details)];
     if (hasReading) detailBlocks.push(renderDetailBlock('Reading', result.reading.details));
     elements.questionDetails.replaceChildren(...detailBlocks);
@@ -583,7 +925,11 @@
       state.completed = Boolean(response.completed);
       saveSession();
       showNotice(portalNotice(response.portalSyncStatus, state.completed), response.portalSyncStatus === 'pending' ? '' : 'success');
-      setStage(state.completed ? 'result-ready' : 'listening-saved');
+      if (state.completed && writingConfig && !state.writingSubmitted) {
+        setStage(state.writingStarted ? 'writing' : 'writing-prep');
+      } else {
+        setStage(state.completed ? 'result-ready' : 'listening-saved');
+      }
     } catch (error) {
       showNotice(`Không thể lưu Listening: ${error.message}`, 'error');
     } finally {
@@ -625,10 +971,16 @@
       });
       state.completed = true;
       saveSession();
-      showNotice(portalNotice(response.portalSyncStatus, true), response.portalSyncStatus === 'pending' ? '' : 'success');
-      setStage('result-ready');
       elements.readingView.dispatchEvent(new CustomEvent('term-test:reading-submitted'));
-      if (automatic) await loadResult(elements.viewResult);
+      if (writingConfig) {
+        setStage('writing-prep');
+        const portalMessage = portalNotice(response.portalSyncStatus, true);
+        showNotice(`${portalMessage} Kết quả sẽ mở sau khi bạn nộp Writing.`, response.portalSyncStatus === 'pending' ? '' : 'success');
+      } else {
+        showNotice(portalNotice(response.portalSyncStatus, true), response.portalSyncStatus === 'pending' ? '' : 'success');
+        setStage('result-ready');
+        if (automatic) await loadResult(elements.viewResult);
+      }
     } catch (error) {
       showNotice(automatic
         ? `Hết giờ nhưng chưa thể nộp Reading: ${error.message}. Hệ thống sẽ tự thử lại; không làm mới trang.`
@@ -643,6 +995,40 @@
   elements.viewResult.dataset.normalText = 'Xem kết quả';
   elements.viewListeningResult.addEventListener('click', () => loadResult(elements.viewListeningResult));
   elements.viewResult.addEventListener('click', () => loadResult(elements.viewResult));
+
+  if (writingConfig) {
+    elements.startWriting.addEventListener('click', () => {
+      state.writingStarted = true;
+      saveSession();
+      showNotice('Writing đã bắt đầu. Bài viết được tự lưu trong tab này.', 'success');
+      setStage('writing');
+    });
+
+    elements.writingView.addEventListener('submit', async event => {
+      event.preventDefault();
+      const belowMinimum = Array.from(writingConfig.tasks || []).map(task => ({
+        label: task.label,
+        words: countWords(state.drafts.writing[task.id]),
+        minimum: task.minimumWords
+      })).filter(task => task.words < task.minimum);
+      if (belowMinimum.length) {
+        const summary = belowMinimum.map(task => `${task.label}: ${task.words}/${task.minimum} từ`).join('\n');
+        if (!window.confirm(`${summary}\n\nBạn vẫn muốn nộp bài Writing?`)) return;
+      }
+
+      state.writingSubmitted = true;
+      saveSession();
+      if (demoMode) {
+        renderResult(buildDemoPayload('complete'));
+        showNotice('Bản demo: Writing đã nộp; kết quả Listening và Reading đã được mở.', 'success');
+        setStage('result');
+        return;
+      }
+      setStage('result-ready');
+      showNotice('Đã nộp Writing. Hệ thống đang mở kết quả Listening và Reading...', 'success');
+      await loadResult(elements.viewResult);
+    });
+  }
 
   function makeDemoSection(skill, correct, band) {
     const types = skill === 'Listening'
@@ -715,11 +1101,29 @@
     renderQuestionControls(testConfig.reading, elements.readingQuestions, 'reading');
     updateAnswerCount('listening');
     updateAnswerCount('reading');
+    setupWritingExam();
 
     if (demoMode) {
+      if ((demoMode === 'writing-prep' || demoMode === 'writing') && writingConfig) {
+        state.studentName = 'Học viên demo';
+        state.completed = true;
+        state.writingStarted = demoMode === 'writing';
+        state.writingSubmitted = false;
+        showNotice(demoMode === 'writing'
+          ? 'Bản demo: học viên đang làm Writing; kết quả vẫn được giữ kín.'
+          : 'Bản demo: Reading đã được chấm và ghi Portal; học viên chuẩn bị vào Writing.', 'success');
+        setStage(demoMode === 'writing' ? 'writing' : 'writing-prep');
+        return;
+      }
+      if (demoMode === 'complete' && writingConfig) {
+        state.writingSubmitted = true;
+        state.drafts.writing.task1 = 'This is a sample Task 1 response for demonstrating the final copy-ready Writing area.';
+        state.drafts.writing.task2 = 'This is a sample Task 2 response. The live page preserves the student essay exactly as typed and provides a separate copy button for each task.';
+      }
+      if (demoMode === 'listening-only') state.writingSubmitted = false;
       renderResult(buildDemoPayload(demoMode));
       showNotice(demoMode === 'complete'
-        ? 'Bản demo: học viên đã nộp cả Listening và Reading.'
+        ? 'Bản demo: học viên đã hoàn thành Listening, Reading và Writing.'
         : 'Bản demo: học viên mới nộp Listening; Reading chưa bị tính điểm.', 'success');
       setStage('result');
       return;
@@ -737,8 +1141,16 @@
       if (!state.roster.length) throw new Error('Lớp chưa có học viên trong hệ thống matching.');
       elements.readingStudentName.textContent = state.studentName;
       if (state.completed && state.attemptToken) {
-        setStage('result-ready');
-        showNotice('Lượt làm đã hoàn tất. Nhấn “Xem kết quả” để mở lại.', 'success');
+        if (writingConfig && !state.writingSubmitted) {
+          setStage(state.writingStarted ? 'writing' : 'writing-prep');
+          showNotice(state.writingStarted
+            ? 'Bài Reading đã được ghi. Tiếp tục hoàn thành Writing để mở kết quả.'
+            : 'Bài Reading đã được ghi. Bắt đầu Writing khi bạn sẵn sàng.', 'success');
+        } else {
+          setStage('result-ready');
+          showNotice('Lượt làm đã hoàn tất. Nhấn “Xem kết quả” để mở lại.', 'success');
+          if (writingConfig && state.writingSubmitted) await loadResult(elements.viewResult);
+        }
       } else if (state.attemptToken) {
         setStage('listening-saved');
         showNotice('Bài Listening đã được lưu. Bạn có thể tiếp tục Reading.', 'success');

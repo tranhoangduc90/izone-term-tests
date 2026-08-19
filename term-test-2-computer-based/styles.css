@@ -1395,6 +1395,389 @@
   width: min(150px, 55%);
 }
 
+.cbt-mode .progress {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.writing-prep-card {
+  width: min(760px, 100%);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.writing-prep-list {
+  display: grid;
+  gap: 8px;
+  max-width: 620px;
+  margin: 18px auto 22px;
+  padding-left: 22px;
+  color: #53657c;
+  text-align: left;
+}
+
+.writing-exam-view {
+  height: calc(100vh - 180px);
+  min-height: 680px;
+  max-height: 1020px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 14px 38px rgba(25, 45, 75, .14);
+}
+
+.writing-exam-view:not([hidden]) {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.writing-exam-header {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 11px 14px;
+  color: #fff;
+  background: linear-gradient(120deg, #143a67, #1d507f);
+  border-bottom: 1px solid #0f3157;
+}
+
+.writing-exam-header .eyebrow {
+  margin: 0 0 2px;
+  color: #bcd8f3;
+  font-size: 9px;
+}
+
+.writing-exam-header h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.writing-task-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.writing-task-tab {
+  min-height: 36px;
+  padding: 7px 13px;
+  color: #dceafa;
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.writing-task-tab:hover,
+.writing-task-tab.is-active {
+  color: #173b67;
+  background: #fff;
+  border-color: #fff;
+}
+
+.writing-submit {
+  min-height: 36px;
+  padding: 7px 13px;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(9, 28, 52, .2);
+}
+
+.writing-workspace,
+.writing-task-panel,
+.writing-split,
+.writing-prompt-pane,
+.writing-answer-pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.writing-workspace {
+  overflow: hidden;
+  color: var(--cbt-ink);
+  background: #eef2f7;
+}
+
+.writing-task-panel {
+  height: 100%;
+}
+
+.writing-task-panel[hidden] {
+  display: none;
+}
+
+.writing-split {
+  display: grid;
+  grid-template-columns: minmax(280px, var(--writing-left, 47%)) 12px minmax(360px, 1fr);
+  height: 100%;
+  background: #fff;
+}
+
+.writing-prompt-pane,
+.writing-answer-pane {
+  display: grid;
+  overflow: hidden;
+  background: #fff;
+}
+
+.writing-prompt-pane {
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--cbt-paper);
+}
+
+.writing-answer-pane {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.writing-pane-header {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  min-height: 49px;
+  padding: 13px 18px;
+  color: var(--cbt-navy);
+  background: #f7f9fc;
+  border-bottom: 1px solid #d7dee8;
+}
+
+.writing-pane-header span {
+  padding: 3px 7px;
+  color: #fff;
+  background: var(--cbt-blue);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.writing-pane-header strong {
+  font-size: 14px;
+}
+
+.writing-prompt-body {
+  padding: clamp(22px, 3vw, 42px);
+  overflow: auto;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.writing-guidance {
+  margin: 0 0 22px;
+  color: #53657c;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.writing-instruction,
+.writing-follow-up,
+.writing-minimum {
+  margin: 0 0 18px;
+}
+
+.writing-follow-up,
+.writing-minimum {
+  font-weight: 700;
+}
+
+.writing-task-figure {
+  margin: 24px 0;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #d9e0e9;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(25, 45, 75, .07);
+}
+
+.writing-task-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.writing-separator {
+  position: relative;
+  z-index: 4;
+  align-self: stretch;
+  width: 34px;
+  margin-left: -11px;
+  padding: 0;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.writing-separator::before {
+  position: absolute;
+  inset: 0 11px;
+  content: '';
+  background: #c7d1df;
+  border-right: 1px solid #aebaca;
+  border-left: 1px solid #aebaca;
+}
+
+.writing-separator span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 38px;
+  color: #fff;
+  background: var(--cbt-blue);
+  border: 3px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 5px 14px rgba(23, 59, 103, .3);
+  transform: translate(-50%, -50%);
+}
+
+.writing-separator:hover span,
+.writing-separator:focus-visible span,
+.writing-separator.is-dragging span {
+  background: #164cae;
+  box-shadow: 0 0 0 4px rgba(37, 99, 217, .18), 0 5px 14px rgba(23, 59, 103, .3);
+}
+
+.writing-editor {
+  width: 100%;
+  min-height: 0;
+  padding: clamp(20px, 3vw, 36px);
+  resize: none;
+  color: #172033;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  font: 16px/1.65 Georgia, 'Times New Roman', serif;
+}
+
+.writing-editor:focus {
+  box-shadow: inset 0 0 0 3px rgba(37, 99, 217, .18);
+}
+
+.writing-editor-meta {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 16px;
+  color: #667085;
+  background: #f7f9fc;
+  border-top: 1px solid #d7dee8;
+  font-size: 11px;
+}
+
+.writing-editor-meta strong {
+  color: var(--cbt-navy);
+}
+
+.writing-task-footer {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) 1fr minmax(150px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f7f9fc;
+  border-top: 1px solid #d7dee8;
+}
+
+.writing-task-footer > span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.writing-result-section {
+  margin: 26px 0;
+  padding: 20px;
+  background: #eef5ff;
+  border: 1px solid #bfd4f1;
+  border-radius: 14px;
+}
+
+.writing-result-heading {
+  display: flex;
+  gap: 20px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.writing-result-heading span {
+  color: #2a64ae;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.writing-result-heading h3,
+.writing-result-heading p {
+  margin: 3px 0 0;
+}
+
+.writing-result-heading p {
+  max-width: 520px;
+  color: #61728a;
+  font-size: 12px;
+  text-align: right;
+}
+
+.writing-result-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.writing-result-card {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #d5dfec;
+  border-radius: 11px;
+}
+
+.writing-result-card > header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dce3ec;
+}
+
+.writing-result-card h4 {
+  margin: 0;
+  color: var(--cbt-navy);
+}
+
+.writing-result-card header span {
+  color: #667085;
+  font-size: 11px;
+}
+
+.writing-copy-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.writing-result-text {
+  max-height: 420px;
+  padding: 18px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
 .cbt-mode .result-panel,
 .cbt-mode .transition-card {
   width: min(980px, 100%);
@@ -1410,6 +1793,33 @@
   .cbt-mode .test-panel:not([hidden]) {
     height: calc(100vh - 165px);
     min-height: 610px;
+  }
+
+  .writing-exam-view {
+    height: calc(100vh - 165px);
+    min-height: 610px;
+  }
+
+  .writing-exam-header {
+    grid-template-columns: minmax(200px, 1fr) auto;
+    gap: 8px 12px;
+  }
+
+  .writing-submit {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .writing-task-tabs {
+    grid-column: 1 / -1;
+  }
+
+  .writing-split {
+    min-width: 760px;
+  }
+
+  .writing-workspace {
+    overflow-x: auto;
   }
 
   .cbt-test-heading .instructions {
@@ -1469,6 +1879,42 @@
   .cbt-mode .progress-step {
     padding: 7px 5px;
     font-size: 10px;
+  }
+
+  .writing-exam-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 9px 10px;
+  }
+
+  .writing-exam-header h2 {
+    font-size: 15px;
+  }
+
+  .writing-task-tab,
+  .writing-submit {
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: 10px;
+  }
+
+  .writing-task-footer {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    padding: 8px 10px;
+  }
+
+  .writing-task-footer > span {
+    display: none;
+  }
+
+  .writing-result-heading,
+  .writing-result-card > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .writing-result-heading p {
+    text-align: left;
   }
 
   .cbt-listening-lobby {
