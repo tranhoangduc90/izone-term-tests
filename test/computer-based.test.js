@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /cbt-v20/);
+  assert.match(html, /cbt-v21/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -51,12 +51,16 @@ test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline m�
   assert.match(source, /syncMultiFields/);
   assert.match(source, /createSectionPager/);
   assert.match(source, /compactIdentityPanel/);
+  assert.match(source, /topbar\.append\(panel\)/);
+  assert.match(source, /identityObserver\.observe\(select, \{ childList: true \}\)/);
+  assert.match(source, /identityTitle\.textContent = 'Họ và tên đã xác nhận'/);
   assert.match(source, /topbarTitle\.textContent = 'Term test 2'/);
   assert.match(source, /Previous ['"] \+ noun/);
   assert.match(source, /Next ['"] \+ noun/);
   assert.match(source, /protectedBootstrap\?\.officialAudioElement/);
   assert.match(source, /uiState\.audio\.volume = preparedVolume/);
   assert.match(source, /setupListeningTimer/);
+  assert.doesNotMatch(source, /cbt-listening-clock/);
   assert.match(source, /listeningDeadlineAt/);
   assert.match(source, /listeningTimeExpired/);
   assert.match(source, /setupReadingTimer/);
@@ -80,7 +84,9 @@ test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Read
   assert.match(source, /term-test:listening-submitted/);
   assert.match(source, /term-test:reading-submitted/);
   assert.match(source, /if \(state\.readingDeadlineAt\)/);
-  assert.match(source, /Đồng hồ máy chủ không dừng khi tải lại trang/);
+  assert.doesNotMatch(source, /Bạn đang làm phần Reading\. Đồng hồ 60 phút đã chạy trên máy chủ/);
+  assert.doesNotMatch(source, /Writing đã bắt đầu\. Bạn có 60 phút/);
+  assert.doesNotMatch(source, /Đang tiếp tục Reading\. Đồng hồ máy chủ không dừng khi tải lại trang/);
   assert.match(source, /writingDeadlineAt/);
   assert.match(source, /audioVolume: state\.audioVolume/);
   assert.match(source, /await loadResult\(elements\.viewResult\)/);
@@ -89,6 +95,8 @@ test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Read
 
 test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia ở desktop', async () => {
   const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
+  assert.match(styles, /\.topbar\.cbt-topbar-with-identity[\s\S]*grid-template-columns: auto minmax\(460px, 720px\)/);
+  assert.match(styles, /\.cbt-mode \.test-panel:not\(\[hidden\]\)[\s\S]*height: calc\(100vh - 120px\)/);
   assert.match(styles, /grid-template-columns: minmax\(280px, var\(--writing-left, 47%\)\) 12px minmax\(360px, 1fr\)/);
   assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.writing-split\s*{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.writing-separator\s*{\s*display: none;/);
