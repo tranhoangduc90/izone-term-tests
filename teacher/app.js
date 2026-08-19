@@ -25,6 +25,7 @@ const state = {
   selectedClassId: '',
   selectedTestSlug: '',
   selectedTab: initialParams.get('student') || 'overview',
+  resultsLoading: false,
   connected: false
 };
 
@@ -387,19 +388,26 @@ function renderActiveView() {
   updateUrl();
 }
 
-async function loadResults() {
+async function loadResults({ quiet = false } = {}) {
   const selectedClass = getSelectedClass();
   if (!selectedClass || !state.selectedTestSlug) return;
-  showNotice(`Đang tải kết quả ${selectedClass.name}...`);
-  const query = new URLSearchParams({ class: selectedClass.name, test: state.selectedTestSlug });
-  const payload = await apiRequest(`/api/term-tests/teacher/results?${query}`);
-  state.students = payload.students || [];
-  if (state.selectedTab !== 'overview' && !state.students.some(student => student.ref === state.selectedTab)) {
-    state.selectedTab = 'overview';
+  if (state.resultsLoading) return;
+  state.resultsLoading = true;
+  try {
+    if (!quiet) showNotice(`Đang tải kết quả ${selectedClass.name}...`);
+    const query = new URLSearchParams({ class: selectedClass.name, test: state.selectedTestSlug });
+    const payload = await apiRequest(`/api/term-tests/teacher/results?${query}`);
+    state.students = payload.students || [];
+    if (state.selectedTab !== 'overview' && !state.students.some(student => student.ref === state.selectedTab)) {
+      state.selectedTab = 'overview';
+    }
+    renderActiveView();
+    const completed = state.students.filter(student => student.status === 'completed').length;
+    const updatedAt = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    showNotice(`Đã tải ${state.students.length} học viên; ${completed} học viên đã hoàn thành · cập nhật ${updatedAt}.`, 'success');
+  } finally {
+    state.resultsLoading = false;
   }
-  renderActiveView();
-  const completed = state.students.filter(student => student.status === 'completed').length;
-  showNotice(`Đã tải ${state.students.length} học viên; ${completed} học viên đã hoàn thành.`, 'success');
 }
 
 async function connectAfterGoogleLogin() {
@@ -510,3 +518,11 @@ elements.overviewBody.addEventListener('click', event => {
 });
 
 setupGoogleSignIn();
+
+// Khi trang đang mở, tự lấy trạng thái mới để giảng viên thấy bài vừa chấm xong mà không phải bấm liên tục.
+window.setInterval(() => {
+  if (!state.connected || document.hidden) return;
+  loadResults({ quiet: true }).catch(error => {
+    showNotice(`Không thể tự làm mới: ${error.message}`, 'error');
+  });
+}, 30_000);
