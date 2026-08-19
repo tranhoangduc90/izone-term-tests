@@ -129,6 +129,7 @@ test('kết quả Writing chỉ mở khi đủ hai Task và mở phân tích chi
   assert.doesNotMatch(source, /feedback\.innerHTML/);
   assert.doesNotMatch(source, /Phân tích câu/);
   assert.doesNotMatch(source, /Sao chép \$\{task\.label\}/);
+  assert.doesNotMatch(source, /Bài làm của học viên/);
   assert.doesNotMatch(source, /writing-result-card/);
   assert.match(styles, /\.writing-feedback-dialog/);
   assert.match(styles, /\.writing-score-grid/);
