@@ -879,6 +879,55 @@
     }[code] || `${taskNumber === 1 ? 'Task 1' : 'Task 2'} · ${code}`;
   }
 
+  function appendSafeWritingFeedback(target, value) {
+    const appendInline = (parent, source) => {
+      const text = String(source || '');
+      const tokenPattern = /\*\*([^*]+)\*\*|\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g;
+      let cursor = 0;
+      for (const match of text.matchAll(tokenPattern)) {
+        if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
+        if (match[1]) {
+          const strong = document.createElement('strong');
+          strong.textContent = match[1];
+          parent.append(strong);
+        } else {
+          const link = document.createElement('a');
+          link.href = match[3];
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.referrerPolicy = 'no-referrer';
+          link.textContent = match[2];
+          parent.append(link);
+        }
+        cursor = match.index + match[0].length;
+      }
+      if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+    };
+
+    const normalized = String(value || 'Chưa có nhận xét tổng hợp.')
+      .replace(/\r/g, '')
+      .replace(/[ \t]+(?=#{2,4}\s+\*\*)/g, '\n');
+    for (const rawLine of normalized.split(/\n+/)) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const heading = line.match(/^(#{2,4})\s+(?:\*\*([^*]+)\*\*|([^#]+?))(?:\s+([\s\S]*))?$/);
+      if (heading) {
+        const title = document.createElement('h5');
+        title.textContent = String(heading[2] || heading[3] || '').trim();
+        target.append(title);
+        if (heading[4]) {
+          const paragraph = document.createElement('p');
+          appendInline(paragraph, heading[4]);
+          target.append(paragraph);
+        }
+        continue;
+      }
+      const paragraph = document.createElement('p');
+      appendInline(paragraph, line);
+      target.append(paragraph);
+    }
+  }
+
   function openWritingFeedback(taskResult) {
     const taskNumber = Number(taskResult?.taskNumber);
     const task = Array.from(writingConfig?.tasks || []).find(item => item.id === `task${taskNumber}`);
@@ -955,9 +1004,9 @@
       const criterionScore = document.createElement('strong');
       criterionScore.textContent = `Band ${formatBand(criterion.bandScore)}`;
       criterionHeader.append(criterionName, criterionScore);
-      const feedback = document.createElement('p');
-      feedback.className = 'writing-feedback-text';
-      feedback.textContent = criterion.feedback || 'Chưa có nhận xét tổng hợp.';
+      const feedback = document.createElement('div');
+      feedback.className = 'writing-feedback-text writing-feedback-richtext';
+      appendSafeWritingFeedback(feedback, criterion.feedback);
       card.append(criterionHeader, feedback);
 
       const components = Array.from(criterion.components || []);
@@ -968,9 +1017,12 @@
           const details = document.createElement('details');
           const summary = document.createElement('summary');
           summary.textContent = component.label || component.code;
-          const componentText = document.createElement('p');
-          componentText.textContent = [component.summary, component.feedback].filter(Boolean).join('\n\n')
-            || 'Chưa có nhận xét chi tiết.';
+          const componentText = document.createElement('div');
+          componentText.className = 'writing-component-feedback writing-feedback-richtext';
+          appendSafeWritingFeedback(
+            componentText,
+            [component.summary, component.feedback].filter(Boolean).join('\n\n') || 'Chưa có nhận xét chi tiết.'
+          );
           details.append(summary, componentText);
           componentList.append(details);
         }

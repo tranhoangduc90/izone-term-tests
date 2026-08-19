@@ -212,7 +212,7 @@ button.writing-score-card:focus-visible {
 .writing-feedback-prompt,
 .writing-feedback-essay,
 .writing-feedback-text,
-.writing-component-list p {
+.writing-component-feedback {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.65;
@@ -280,6 +280,26 @@ button.writing-score-card:focus-visible {
   color: #354d69;
 }
 
+.writing-feedback-richtext h5 {
+  margin: 16px 0 6px;
+  color: #173f70;
+  font-size: 14px;
+}
+
+.writing-feedback-richtext h5:first-child {
+  margin-top: 0;
+}
+
+.writing-feedback-richtext p {
+  margin: 7px 0 0;
+}
+
+.writing-feedback-richtext a {
+  color: #145eb5;
+  font-weight: 700;
+  text-underline-offset: 2px;
+}
+
 .writing-component-list {
   margin-top: 14px;
   border-top: 1px solid #e0e8f1;
@@ -296,7 +316,7 @@ button.writing-score-card:focus-visible {
   font-weight: 700;
 }
 
-.writing-component-list p {
+.writing-component-feedback {
   margin: 10px 0 0;
   color: #4a6079;
 }
