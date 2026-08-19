@@ -20,10 +20,34 @@ export function summarizeStudents(students) {
   return {
     total: (students || []).length,
     completed: completed.length,
+    writingReady: (students || []).filter(student => student.writing?.status === 'ready').length,
+    writingProcessing: (students || []).filter(student => student.writing?.status === 'processing').length,
+    writingReviewRequired: (students || []).filter(student => student.writing?.status === 'review_required').length,
     listeningAverage: average(completed.map(student => student.result.listening?.band).filter(Number.isFinite)),
     readingAverage: average(completed.map(student => student.result.reading?.band).filter(Number.isFinite)),
     overallAverage: average(completed.map(student => getAverageBand(student.result)).filter(Number.isFinite))
   };
+}
+
+export function writingStatusLabel(status) {
+  return {
+    ready: 'Đã chấm xong',
+    processing: 'Đang chấm',
+    review_required: 'Cần kiểm tra',
+    not_submitted: 'Chưa nộp Writing'
+  }[status] || 'Chưa có trạng thái';
+}
+
+export function writingTaskStateLabel(status) {
+  return {
+    complete: 'xong',
+    grading: 'đang chấm',
+    queued: 'đang chờ',
+    retry_wait: 'đang thử lại',
+    review_required: 'cần kiểm tra',
+    failed: 'lỗi',
+    not_submitted: 'chưa nộp'
+  }[status] || 'đang chờ';
 }
 
 export function statusLabel(status) {

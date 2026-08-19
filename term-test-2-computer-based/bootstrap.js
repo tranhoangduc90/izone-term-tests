@@ -7,6 +7,8 @@
   const root = document.getElementById('app');
   const query = new URLSearchParams(window.location.search);
   const classCode = (query.get('class') || '').trim().toUpperCase();
+  const demoStudentRef = classCode === 'CODEXDEMO806' ? (query.get('demoStudent') || '').trim() : '';
+  const demoAttemptToken = classCode === 'CODEXDEMO806' ? (query.get('demoAttempt') || '').trim() : '';
   if (!testConfig || !appConfig || !audioLoader || !root) return;
   document.body.classList.add('cbt-mode');
 
@@ -92,6 +94,10 @@
     return String(value || '').replace(/[&<>"']/g, character => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[character]);
+  }
+
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
 
   function readState() {
@@ -325,8 +331,8 @@
     });
     previewAudio.remove();
     revokePreview();
-    await loadScript('../shared/app.js?rev=20260819-cbt-v23');
-    await loadScript('enhance.js?rev=20260819-cbt-v23');
+    await loadScript('../shared/app.js?rev=20260820-cbt-v24');
+    await loadScript('enhance.js?rev=20260820-cbt-v24');
   }
 
   async function resumeAfterListening() {
@@ -457,6 +463,28 @@
       const options = [new Option('Nhấn để chọn', '')];
       for (const student of roster) options.push(new Option(student.name, student.ref));
       elements.bootstrapStudent.replaceChildren(...options);
+      if (demoStudentRef || demoAttemptToken) {
+        const demoStudent = roster.find(student => student.ref === demoStudentRef);
+        if (!demoStudent || !isUuid(demoStudentRef) || !isUuid(demoAttemptToken)) {
+          showNotice('Liên kết kết quả demo không hợp lệ.', true);
+          return;
+        }
+        saveState({
+          studentRef: demoStudent.ref,
+          studentName: demoStudent.name,
+          attemptToken: demoAttemptToken,
+          examSessionToken: '',
+          listeningStartedAt: '',
+          listeningDeadlineAt: '',
+          readingStartedAt: '',
+          readingDeadlineAt: '',
+          writingStartedAt: '',
+          writingDeadlineAt: ''
+        });
+        elements.bootstrapStudent.value = demoStudent.ref;
+        await prepareSelectedStudent();
+        return;
+      }
       if (state.studentRef && roster.some(student => student.ref === state.studentRef)) {
         elements.bootstrapStudent.value = state.studentRef;
         await prepareSelectedStudent();

@@ -5,7 +5,14 @@
  * Khi lỗi: trang giữ nguyên dữ liệu cũ nếu có và hiện thông báo rõ để giảng viên đăng nhập lại hoặc thử tải lại.
  */
 
-import { formatBand, getAverageBand, statusLabel, summarizeStudents } from './model.js';
+import {
+  formatBand,
+  getAverageBand,
+  statusLabel,
+  summarizeStudents,
+  writingStatusLabel,
+  writingTaskStateLabel
+} from './model.js';
 
 const appConfig = window.TERM_TEST_APP_CONFIG || {};
 const initialParams = new URLSearchParams(window.location.search);
@@ -125,7 +132,10 @@ function renderClassSummary() {
     addTeacherSummaryCard('Đã hoàn thành', `${summary.completed}/${summary.total}`),
     addTeacherSummaryCard('Listening trung bình', formatBand(summary.listeningAverage, 2)),
     addTeacherSummaryCard('Reading trung bình', formatBand(summary.readingAverage, 2)),
-    addTeacherSummaryCard('Band tổng trung bình', formatBand(summary.overallAverage, 2))
+    addTeacherSummaryCard('Band tổng trung bình', formatBand(summary.overallAverage, 2)),
+    addTeacherSummaryCard('Writing đã chấm', String(summary.writingReady)),
+    addTeacherSummaryCard('Writing đang chấm', String(summary.writingProcessing)),
+    addTeacherSummaryCard('Writing cần kiểm tra', String(summary.writingReviewRequired))
   );
 }
 
@@ -195,6 +205,21 @@ function renderOverviewRows() {
     const listeningCell = createNode('td', 'teacher-band', result ? formatBand(result.listening?.band) : '—');
     const readingCell = createNode('td', 'teacher-band', result ? formatBand(result.reading?.band) : '—');
     const overallCell = createNode('td', 'teacher-band', result ? formatBand(getAverageBand(result), 2) : '—');
+    const writing = student.writing || { status: 'not_submitted' };
+    const writingCell = document.createElement('td');
+    const writingMain = writing.status === 'ready'
+      ? `Band ${formatBand(Number(writing.writingScore))}`
+      : writingStatusLabel(writing.status);
+    writingCell.append(
+      createNode('span', `teacher-writing-status ${writing.status}`, writingMain),
+      createNode(
+        'small',
+        'teacher-writing-tasks',
+        writing.status === 'ready'
+          ? `Task 1: ${formatBand(Number(writing.task1Score))} · Task 2: ${formatBand(Number(writing.task2Score))}`
+          : `Task 1: ${writingTaskStateLabel(writing.task1State)} · Task 2: ${writingTaskStateLabel(writing.task2State)}`
+      )
+    );
     const statusCell = document.createElement('td');
     statusCell.append(createNode('span', `teacher-status ${student.status}`, statusLabel(student.status)));
     const actionCell = document.createElement('td');
@@ -202,7 +227,7 @@ function renderOverviewRows() {
     openButton.type = 'button';
     openButton.dataset.openStudent = student.ref;
     actionCell.append(openButton);
-    row.append(nameCell, listeningCell, readingCell, overallCell, statusCell, actionCell);
+    row.append(nameCell, listeningCell, readingCell, overallCell, writingCell, statusCell, actionCell);
     return row;
   }));
 }
@@ -294,6 +319,7 @@ function renderStudentResult(student) {
   }
 
   const result = student.result;
+  const writing = student.writing || { status: 'not_submitted' };
   const panel = createNode('section', 'panel result-panel teacher-result-panel');
   const heading = createNode('div', 'result-heading');
   const headingCopy = document.createElement('div');
@@ -308,7 +334,9 @@ function renderStudentResult(student) {
   summaryGrid.append(
     addResultSummaryCard('Listening', `${result.listening.correct}/${result.listening.total} · Band ${result.listening.band}`),
     addResultSummaryCard('Reading', `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}`),
-    addResultSummaryCard('Tổng điểm', `Band ${formatBand(getAverageBand(result), 2)}`)
+    addResultSummaryCard('Writing Task 1', writing.status === 'ready' ? `Band ${formatBand(Number(writing.task1Score))}` : writingTaskStateLabel(writing.task1State)),
+    addResultSummaryCard('Writing Task 2', writing.status === 'ready' ? `Band ${formatBand(Number(writing.task2Score))}` : writingTaskStateLabel(writing.task2State)),
+    addResultSummaryCard('Writing', writing.status === 'ready' ? `Band ${formatBand(Number(writing.writingScore))}` : writingStatusLabel(writing.status))
   );
 
   const questionDetails = document.createElement('div');

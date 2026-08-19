@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /cbt-v22/);
+  assert.match(html, /cbt-v24/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -42,6 +42,15 @@ test('phòng chờ tải audio mã hóa, nghe bản thử rồi mới xin khóa 
   assert.match(source, /legacyUiState\.audioTime/);
   assert.match(source, /const sameStudent = selectedRef === state\.studentRef/);
   assert.match(source, /examSessionToken: sameStudent \? state\.examSessionToken : ''/);
+});
+
+test('liên kết xem kết quả demo chỉ hoạt động trong lớp giả lập và vẫn xác thực UUID', async () => {
+  const source = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  assert.match(source, /classCode === 'CODEXDEMO806'/);
+  assert.match(source, /query\.get\('demoStudent'\)/);
+  assert.match(source, /query\.get\('demoAttempt'\)/);
+  assert.match(source, /!demoStudent \|\| !isUuid\(demoStudentRef\) \|\| !isUuid\(demoAttemptToken\)/);
+  assert.match(source, /await prepareSelectedStudent\(\)/);
 });
 
 test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline máy chủ cho ba kỹ năng', async () => {
