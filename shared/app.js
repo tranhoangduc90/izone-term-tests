@@ -24,13 +24,20 @@
     studentRef: '',
     studentName: '',
     clientSubmissionId: '',
+    examSessionToken: '',
     attemptToken: '',
+    listeningDeadlineAt: '',
+    readingDeadlineAt: '',
+    writingDeadlineAt: '',
+    serverTimeOffsetMs: 0,
+    audioVolume: 1,
     completed: false,
     writingStarted: false,
     writingSubmitted: false,
     writingDirty: false,
     drafts: { listening: {}, reading: {}, writing: { task1: '', task2: '' } },
     writingLayout: { activeTask: 'task1', splits: {} },
+    frozenAnswers: { listening: null, reading: null },
     result: null,
     ...restoredSession,
     drafts: {
@@ -44,6 +51,10 @@
     writingLayout: {
       activeTask: String(restoredSession.writingLayout?.activeTask || 'task1'),
       splits: { ...(restoredSession.writingLayout?.splits || {}) }
+    },
+    frozenAnswers: {
+      listening: restoredSession.frozenAnswers?.listening || null,
+      reading: restoredSession.frozenAnswers?.reading || null
     }
   };
 
@@ -64,13 +75,20 @@
       studentRef: state.studentRef,
       studentName: state.studentName,
       clientSubmissionId: state.clientSubmissionId,
+      examSessionToken: state.examSessionToken,
       attemptToken: state.attemptToken,
+      listeningDeadlineAt: state.listeningDeadlineAt,
+      readingDeadlineAt: state.readingDeadlineAt,
+      writingDeadlineAt: state.writingDeadlineAt,
+      serverTimeOffsetMs: state.serverTimeOffsetMs,
+      audioVolume: state.audioVolume,
       completed: state.completed,
       writingStarted: state.writingStarted,
       writingSubmitted: state.writingSubmitted,
       writingDirty: state.writingDirty,
       drafts: state.drafts,
-      writingLayout: state.writingLayout
+      writingLayout: state.writingLayout,
+      frozenAnswers: state.frozenAnswers
     });
     for (const storage of [sessionStorage, localStorage]) {
       try {
@@ -342,6 +360,7 @@
         state.drafts[skill][String(control.number)] = field.value;
         saveSession();
         updateAnswerCount(skill);
+        scheduleSectionDraft(skill);
       });
       wrapper.append(number, field);
       return wrapper;
@@ -385,6 +404,58 @@
     }
   }
 
+  const sectionDraftTimers = { listening: 0, reading: 0 };
+
+  async function saveSectionDraft(skill) {
+    if (demoMode) return null;
+    const container = skill === 'listening' ? elements.listeningQuestions : elements.readingQuestions;
+    const answers = collectAnswers(container);
+    const path = skill === 'listening'
+      ? `/api/term-tests/${testConfig.slug}/listening/draft`
+      : `/api/term-tests/${testConfig.slug}/reading/draft`;
+    const token = skill === 'listening'
+      ? { examSessionToken: state.examSessionToken }
+      : { attemptToken: state.attemptToken };
+    if (!Object.values(token)[0]) return null;
+    const response = await apiRequest(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...token, answers })
+    });
+    if (response.deadlineAt) {
+      if (skill === 'listening') state.listeningDeadlineAt = response.deadlineAt;
+      else state.readingDeadlineAt = response.deadlineAt;
+    }
+    if (response.serverNow) state.serverTimeOffsetMs = Date.parse(response.serverNow) - Date.now();
+    saveSession();
+    return response;
+  }
+
+  function scheduleSectionDraft(skill, delay = 600) {
+    if (demoMode || (skill === 'listening' && !state.examSessionToken) || (skill === 'reading' && !state.attemptToken)) return;
+    window.clearTimeout(sectionDraftTimers[skill]);
+    sectionDraftTimers[skill] = window.setTimeout(() => {
+      saveSectionDraft(skill).catch(() => {
+        // Bản trên máy vẫn còn; lần thay đổi hoặc nộp tiếp theo sẽ thử lại.
+      });
+    }, delay);
+  }
+
+  function setAnswerControlsLocked(skill, locked) {
+    const form = skill === 'listening' ? elements.listeningView : elements.readingView;
+    if (!form) return;
+    for (const control of form.querySelectorAll('input, select, textarea')) {
+      control.disabled = locked;
+    }
+    form.classList.toggle('is-answer-locked', locked);
+  }
+
+  function isSectionExpired(skill) {
+    const deadlineValue = skill === 'listening' ? state.listeningDeadlineAt : state.readingDeadlineAt;
+    const deadline = Date.parse(deadlineValue || '');
+    return Number.isFinite(deadline) && Date.now() + (Number(state.serverTimeOffsetMs) || 0) >= deadline;
+  }
+
   let writingSaveTimer = 0;
   let writingRetryTimer = 0;
   let writingSavePromise = Promise.resolve();
@@ -424,6 +495,8 @@
     }
     state.writingStarted = Boolean(writing.started || state.writingStarted);
     state.writingSubmitted = Boolean(writing.submitted || state.writingSubmitted);
+    state.writingDeadlineAt = writing.deadlineAt || state.writingDeadlineAt;
+    if (writing.serverNow) state.serverTimeOffsetMs = Date.parse(writing.serverNow) - Date.now();
     syncWritingEditors();
     saveSession();
   }
@@ -487,6 +560,9 @@
     state.studentName = payload.studentName || state.studentName;
     state.className = payload.className || state.className;
     state.completed = Boolean(payload.completed);
+    state.examSessionToken = payload.exam?.examSessionToken || state.examSessionToken;
+    state.readingDeadlineAt = payload.exam?.readingDeadlineAt || state.readingDeadlineAt;
+    if (payload.exam?.serverNow) state.serverTimeOffsetMs = Date.parse(payload.exam.serverNow) - Date.now();
     applyWritingFromServer(payload.writing);
     saveSession();
     return payload;
@@ -1029,13 +1105,23 @@
       showNotice('Hãy chọn đúng họ và tên trước khi nộp Listening.', 'error');
       return;
     }
-    const answers = collectAnswers(elements.listeningQuestions);
+    const automatic = event.submitter?.dataset.autoSubmit === 'true'
+      || elements.listeningView.dataset.listeningTimeExpired === 'true';
+    let answers = state.frozenAnswers.listening || collectAnswers(elements.listeningQuestions);
+    if (automatic && !state.frozenAnswers.listening) {
+      state.frozenAnswers.listening = Object.freeze({ ...answers });
+      answers = state.frozenAnswers.listening;
+    }
     const answered = Object.values(answers).filter(Boolean).length;
-    if (!confirmIncomplete(answered, 'Listening')) return;
+    if (!automatic && !confirmIncomplete(answered, 'Listening')) return;
     state.clientSubmissionId ||= crypto.randomUUID();
     state.drafts.listening = answers;
     saveSession();
+    elements.listeningView.dataset.listeningSubmitting = 'true';
+    setAnswerControlsLocked('listening', true);
     setBusy(elements.submitListening, true, 'Đang lưu Listening...', 'Nộp bài Listening');
+    if (automatic) showNotice('Đã hết giờ. Hệ thống đang tự thu và chấm bài Listening...');
+    let submitted = false;
     try {
       const response = await apiRequest(`/api/term-tests/${testConfig.slug}/listening`, {
         method: 'POST',
@@ -1044,13 +1130,17 @@
           classCode,
           studentRef: state.studentRef,
           clientSubmissionId: state.clientSubmissionId,
+          examSessionToken: state.examSessionToken || undefined,
           answers
         })
       });
       state.attemptToken = response.attemptToken;
       state.studentName = response.studentName;
       state.completed = Boolean(response.completed);
+      state.frozenAnswers.listening = null;
       saveSession();
+      submitted = true;
+      elements.listeningView.dispatchEvent(new CustomEvent('term-test:listening-submitted'));
       showNotice(portalNotice(response.portalSyncStatus, state.completed), response.portalSyncStatus === 'pending' ? '' : 'success');
       if (state.completed && writingConfig && !state.writingSubmitted) {
         setStage(state.writingStarted ? 'writing' : 'writing-prep');
@@ -1058,38 +1148,68 @@
         setStage(state.completed ? 'result-ready' : 'listening-saved');
       }
     } catch (error) {
-      showNotice(`Không thể lưu Listening: ${error.message}`, 'error');
+      showNotice(automatic
+        ? `Hết giờ nhưng chưa thể nộp Listening: ${error.message}. Bài đã khóa và hệ thống sẽ tự thử lại.`
+        : `Không thể lưu Listening: ${error.message}`, 'error');
     } finally {
+      delete elements.listeningView.dataset.listeningSubmitting;
+      if (!submitted && isSectionExpired('listening')) {
+        elements.listeningView.dataset.listeningTimeExpired = 'true';
+        state.frozenAnswers.listening ||= { ...answers };
+        saveSession();
+      } else if (!automatic && !submitted) {
+        setAnswerControlsLocked('listening', false);
+      }
       setBusy(elements.submitListening, false, 'Đang lưu Listening...', 'Nộp bài Listening');
     }
   });
 
-  elements.startReading.addEventListener('click', () => {
-    elements.readingStudentName.textContent = state.studentName;
-    showNotice('Bạn đang làm phần Reading. Bài Listening đã được lưu.', 'success');
-    setStage('reading');
-  });
+  async function startOrResumeReading(button) {
+    setBusy(button, true, 'Đang mở Reading...', button.dataset.normalText || button.textContent);
+    try {
+      const response = await apiRequest(`/api/term-tests/${testConfig.slug}/reading/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptToken: state.attemptToken })
+      });
+      state.readingDeadlineAt = response.readingDeadlineAt;
+      state.serverTimeOffsetMs = Date.parse(response.serverNow) - Date.now();
+      saveSession();
+      elements.readingStudentName.textContent = state.studentName;
+      showNotice('Bạn đang làm phần Reading. Đồng hồ 60 phút đã chạy trên máy chủ.', 'success');
+      setStage('reading');
+    } catch (error) {
+      showNotice(`Chưa thể mở Reading: ${error.message}`, 'error');
+    } finally {
+      setBusy(button, false, 'Đang mở Reading...', button.dataset.normalText || 'Bắt đầu bài Reading');
+    }
+  }
 
-  elements.continueReadingFromResult.addEventListener('click', () => {
-    elements.readingStudentName.textContent = state.studentName;
-    showNotice('Điểm Listening đã được lưu. Bạn đang tiếp tục phần Reading.', 'success');
-    setStage('reading');
-  });
+  elements.startReading.dataset.normalText = 'Bắt đầu bài Reading';
+  elements.continueReadingFromResult.dataset.normalText = 'Tiếp tục làm Reading';
+  elements.startReading.addEventListener('click', () => startOrResumeReading(elements.startReading));
+  elements.continueReadingFromResult.addEventListener('click', () => startOrResumeReading(elements.continueReadingFromResult));
 
   elements.readingView.addEventListener('submit', async event => {
     event.preventDefault();
     const automatic = event.submitter?.dataset.autoSubmit === 'true'
       || elements.readingView.dataset.readingTimeExpired === 'true';
-    const answers = collectAnswers(elements.readingQuestions);
+    let answers = state.frozenAnswers.reading || collectAnswers(elements.readingQuestions);
+    if (automatic && !state.frozenAnswers.reading) {
+      state.frozenAnswers.reading = Object.freeze({ ...answers });
+      answers = state.frozenAnswers.reading;
+    }
     const answered = Object.values(answers).filter(Boolean).length;
     if (!automatic && !confirmIncomplete(answered, 'Reading')) return;
     elements.readingView.dataset.readingSubmitting = 'true';
     state.drafts.reading = answers;
     saveSession();
+    setAnswerControlsLocked('reading', true);
     setBusy(elements.submitReading, true, 'Đang lưu và chấm...', 'Nộp bài Reading');
     if (automatic) {
       showNotice('Đã hết 60 phút. Hệ thống đang tự thu và chấm bài Reading...');
     }
+    let submitted = false;
     try {
       const response = await apiRequest(`/api/term-tests/${testConfig.slug}/reading`, {
         method: 'POST',
@@ -1097,7 +1217,9 @@
         body: JSON.stringify({ attemptToken: state.attemptToken, answers })
       });
       state.completed = true;
+      state.frozenAnswers.reading = null;
       saveSession();
+      submitted = true;
       elements.readingView.dispatchEvent(new CustomEvent('term-test:reading-submitted'));
       if (writingConfig) {
         setStage('writing-prep');
@@ -1114,6 +1236,13 @@
         : `Không thể lưu Reading: ${error.message}`, 'error');
     } finally {
       delete elements.readingView.dataset.readingSubmitting;
+      if (!submitted && isSectionExpired('reading')) {
+        elements.readingView.dataset.readingTimeExpired = 'true';
+        state.frozenAnswers.reading ||= { ...answers };
+        saveSession();
+      } else if (!automatic && !submitted) {
+        setAnswerControlsLocked('reading', false);
+      }
       setBusy(elements.submitReading, false, 'Đang lưu và chấm...', 'Nộp bài Reading');
     }
   });
@@ -1332,8 +1461,13 @@
           if (writingConfig && state.writingSubmitted) await loadResult(elements.viewResult);
         }
       } else if (state.attemptToken) {
-        setStage('listening-saved');
-        showNotice('Bài Listening đã được lưu. Bạn có thể tiếp tục Reading.', 'success');
+        if (state.readingDeadlineAt) {
+          setStage('reading');
+          showNotice('Đang tiếp tục Reading. Đồng hồ máy chủ không dừng khi tải lại trang.', 'success');
+        } else {
+          setStage('listening-saved');
+          showNotice('Bài Listening đã được lưu. Bạn có thể tiếp tục Reading.', 'success');
+        }
       } else {
         setStage('listening');
         hideNotice();
