@@ -564,6 +564,12 @@
   // Khi lỗi: phòng chờ vẫn giữ đề bị khóa, giải thích rõ và cho tải lại mà không làm mất draft.
   function setupBufferedAudio(listeningForm) {
     if (!listeningForm) return;
+    const protectedBootstrap = window.TERM_TEST_BOOTSTRAP || null;
+    const preparedVolume = Number(protectedBootstrap?.audioVolume);
+    if (Number.isFinite(preparedVolume) && preparedVolume >= 0.1 && preparedVolume <= 1) {
+      uiState.audio.volume = preparedVolume;
+      saveUiState();
+    }
     const studentSelect = document.getElementById('studentSelect');
     const identityPanel = document.getElementById('identityView');
     const identityTitle = document.getElementById('identityTitle');
@@ -692,21 +698,21 @@
     examCard.append(examCopy, examControls);
     listeningForm.source.toolbar.append(examCard);
 
-    const audio = document.createElement('audio');
+    const audio = protectedBootstrap?.officialAudioElement || document.createElement('audio');
     audio.preload = 'auto';
     audio.volume = uiState.audio.volume;
     audio.hidden = true;
     lobby.append(audio);
 
     let lastSavedSecond = Math.floor(uiState.audio.time);
-    let examStarted = Boolean(uiState.audio.started);
+    let examStarted = Boolean(protectedBootstrap?.officialAudioElement || uiState.audio.started);
     let previewHeard = false;
     let previewing = false;
     let ready = false;
     let allowPause = false;
     let downloadRun = 0;
     let downloadController = null;
-    let objectUrl = '';
+    let objectUrl = protectedBootstrap?.officialAudioUrl || '';
 
     function readSavedStudentRef() {
       for (const storage of [sessionStorage, localStorage]) {
@@ -800,7 +806,7 @@
     }
 
     function restoreOfficialTime() {
-      if (!examStarted || !Number.isFinite(audio.duration)) return;
+      if (protectedBootstrap?.officialAudioElement || !examStarted || !Number.isFinite(audio.duration)) return;
       const safeTime = Math.min(Math.max(0, uiState.audio.time), Math.max(0, audio.duration - 1));
       audio.currentTime = safeTime;
     }
@@ -1018,7 +1024,9 @@
       }
     });
     retryButton.addEventListener('click', downloadFullAudio);
-    examRetryButton.addEventListener('click', downloadFullAudio);
+    examRetryButton.addEventListener('click', protectedBootstrap?.officialAudioElement
+      ? () => window.location.reload()
+      : downloadFullAudio);
     function applyVolume(value) {
       const nextVolume = Number(value);
       audio.volume = nextVolume;
@@ -1047,8 +1055,89 @@
       revokeAudioUrl();
     });
 
-    setListeningVisible(false);
-    downloadFullAudio();
+    if (protectedBootstrap?.officialAudioElement) {
+      ready = true;
+      uiState.audio.started = true;
+      uiState.audio.time = audio.currentTime || 0;
+      lockStudentSelection();
+      setListeningVisible(true);
+      updateExamStatus(audio.ended ? 'Đã phát xong' : 'Đang phát bài thi');
+      saveUiState();
+    } else {
+      setListeningVisible(false);
+      downloadFullAudio();
+    }
+  }
+
+  // Dữ liệu vào: deadline Listening do máy chủ tạo khi học viên bấm Bắt đầu.
+  // Việc chính: hiện thời gian còn lại, chuyển đỏ trong 2 phút kiểm tra cuối và khóa/tự nộp đúng hạn.
+  // Kết quả: audio kết thúc không tạo thêm thời gian làm vô hạn; lần thử lại vẫn dùng bản đáp án đã khóa.
+  // Khi lỗi mạng: form tiếp tục bị khóa và shared/app.js tự thử gửi lại cùng một payload.
+  function setupListeningTimer(listeningForm) {
+    if (!listeningForm) return;
+    const headingActions = listeningForm.form.querySelector('.cbt-heading-actions');
+    if (!headingActions) return;
+    const clock = document.createElement('div');
+    clock.className = 'cbt-reading-clock cbt-listening-clock';
+    clock.setAttribute('role', 'timer');
+    clock.setAttribute('aria-live', 'polite');
+    const label = document.createElement('span');
+    label.textContent = 'Còn';
+    const value = document.createElement('strong');
+    value.textContent = '--:--';
+    clock.append(label, value);
+    headingActions.prepend(clock);
+
+    const autoSubmit = makeButton('cbt-listening-auto-submit', 'Tự nộp bài Listening');
+    autoSubmit.type = 'submit';
+    autoSubmit.hidden = true;
+    autoSubmit.dataset.autoSubmit = 'true';
+    autoSubmit.tabIndex = -1;
+    listeningForm.form.append(autoSubmit);
+    let intervalId = 0;
+    let lastAttempt = 0;
+
+    function readExamState() {
+      for (const storage of [sessionStorage, localStorage]) {
+        try {
+          const parsed = JSON.parse(storage.getItem(submissionStorageKey) || '{}');
+          if (parsed.listeningDeadlineAt) return parsed;
+        } catch {
+          // Tiếp tục với nguồn bộ nhớ còn lại.
+        }
+      }
+      return {};
+    }
+
+    function lockAndSubmit(now) {
+      if (listeningForm.form.dataset.listeningSubmitting === 'true' || now - lastAttempt < 15_000) return;
+      lastAttempt = now;
+      listeningForm.form.dataset.listeningTimeExpired = 'true';
+      for (const control of listeningForm.form.querySelectorAll('input, select, textarea, .cbt-choice input')) {
+        control.disabled = true;
+      }
+      listeningForm.form.requestSubmit(autoSubmit);
+    }
+
+    function render() {
+      const exam = readExamState();
+      const deadline = Date.parse(exam.listeningDeadlineAt || '');
+      if (!Number.isFinite(deadline)) return;
+      const serverOffset = Number(exam.serverTimeOffsetMs) || 0;
+      const remaining = Math.max(0, deadline - (Date.now() + serverOffset));
+      value.textContent = formatTime(Math.ceil(remaining / 1000));
+      const finalReview = remaining > 0 && remaining <= 120_000;
+      clock.classList.toggle('is-warning', finalReview);
+      clock.classList.toggle('is-expired', remaining === 0);
+      clock.setAttribute('aria-label', remaining > 0
+        ? `${finalReview ? 'Thời gian kiểm tra cuối' : 'Thời gian Listening còn lại'} ${formatTime(Math.ceil(remaining / 1000))}`
+        : 'Đã hết giờ Listening; hệ thống đang tự thu bài');
+      if (remaining === 0) lockAndSubmit(Date.now());
+    }
+    render();
+    intervalId = window.setInterval(render, 1000);
+    listeningForm.form.addEventListener('term-test:listening-submitted', () => window.clearInterval(intervalId));
+    window.addEventListener('pagehide', () => window.clearInterval(intervalId));
   }
 
   // Dữ liệu vào: form Reading, mốc kết thúc đã lưu và trạng thái gửi bài của shared/app.js.
@@ -1060,7 +1149,6 @@
     const headingActions = readingForm.form.querySelector('.cbt-heading-actions');
     if (!headingActions) return;
 
-    const durationMs = 60 * 60 * 1000;
     const retryDelayMs = 15 * 1000;
     const clock = document.createElement('div');
     clock.className = 'cbt-reading-clock';
@@ -1137,10 +1225,16 @@
         uiState.readingTimer.deadline = 0;
         uiState.readingTimer.attemptToken = attemptToken;
       }
-      if (!uiState.readingTimer.deadline) {
-        uiState.readingTimer.deadline = Date.now() + durationMs;
-        saveUiState();
+      for (const storage of [sessionStorage, localStorage]) {
+        try {
+          const session = JSON.parse(storage.getItem(submissionStorageKey) || '{}');
+          const deadline = Date.parse(session.readingDeadlineAt || '');
+          if (Number.isFinite(deadline)) uiState.readingTimer.deadline = deadline - (Number(session.serverTimeOffsetMs) || 0);
+        } catch {
+          // Tiếp tục với nguồn bộ nhớ còn lại.
+        }
       }
+      if (!uiState.readingTimer.deadline) return;
       renderTimer();
       intervalId = window.setInterval(renderTimer, 1000);
     }
@@ -1167,7 +1261,6 @@
     const header = form?.querySelector('.writing-exam-header');
     if (!form || !header) return;
 
-    const durationMs = 60 * 60 * 1000;
     const retryDelayMs = 15 * 1000;
     const clock = document.createElement('div');
     clock.className = 'cbt-reading-clock cbt-writing-clock';
@@ -1245,10 +1338,16 @@
         uiState.writingTimer.deadline = 0;
         uiState.writingTimer.attemptToken = attemptToken;
       }
-      if (!uiState.writingTimer.deadline) {
-        uiState.writingTimer.deadline = Date.now() + durationMs;
-        saveUiState();
+      for (const storage of [sessionStorage, localStorage]) {
+        try {
+          const session = JSON.parse(storage.getItem(submissionStorageKey) || '{}');
+          const deadline = Date.parse(session.writingDeadlineAt || '');
+          if (Number.isFinite(deadline)) uiState.writingTimer.deadline = deadline - (Number(session.serverTimeOffsetMs) || 0);
+        } catch {
+          // Tiếp tục với nguồn bộ nhớ còn lại.
+        }
       }
+      if (!uiState.writingTimer.deadline) return;
       renderTimer();
       intervalId = window.setInterval(renderTimer, 1000);
     }
@@ -1284,7 +1383,10 @@
   const listeningForm = enhanceForm('listening');
   const readingForm = enhanceForm('reading');
   if (!isDemo) {
-    setupBufferedAudio(listeningForm);
+    if (!window.TERM_TEST_BOOTSTRAP?.skipListeningAudio) {
+      setupBufferedAudio(listeningForm);
+      setupListeningTimer(listeningForm);
+    }
     setupReadingTimer(readingForm);
     setupWritingTimer();
   }

@@ -34,6 +34,51 @@
   margin: 10px auto 30px;
 }
 
+.cbt-bootstrap-shell {
+  width: min(1040px, calc(100% - 20px)) !important;
+}
+
+.cbt-bootstrap-card {
+  padding: clamp(16px, 2vw, 26px);
+}
+
+.cbt-bootstrap-identity {
+  display: grid;
+  grid-template-columns: minmax(150px, .45fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--cbt-line);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.cbt-bootstrap-identity > strong {
+  align-self: center;
+  color: var(--cbt-navy);
+  font-size: 17px;
+}
+
+.cbt-bootstrap-identity label {
+  display: grid;
+  gap: 5px;
+  color: var(--cbt-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cbt-bootstrap-identity select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: var(--cbt-ink);
+  background: #fff;
+  font: inherit;
+}
+
 .cbt-mode .progress,
 .cbt-mode .notice,
 .cbt-mode .identity-panel {
@@ -1888,6 +1933,41 @@
   .cbt-text-size > span,
   .cbt-text-size > strong {
     display: none;
+  }
+
+  .cbt-bootstrap-identity {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .writing-exam-view:not([hidden]) {
+    height: auto;
+    min-height: calc(100vh - 10px);
+  }
+
+  .writing-workspace {
+    overflow: visible;
+  }
+
+  .writing-task-panel {
+    height: auto;
+  }
+
+  .writing-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(320px, 46vh) minmax(390px, 54vh);
+    min-width: 0;
+    height: auto;
+  }
+
+  .writing-separator {
+    display: none;
+  }
+
+  .writing-prompt-pane,
+  .writing-answer-pane {
+    min-height: 0;
+    border-bottom: 1px solid var(--cbt-line);
   }
 
   .cbt-mode .progress-step {

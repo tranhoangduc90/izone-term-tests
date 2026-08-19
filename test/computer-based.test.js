@@ -1,206 +1,96 @@
 import assert from 'node:assert/strict';
-import { readFile, stat } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import vm from 'node:vm';
 
 const routeUrl = new URL('../term-test-2-computer-based/', import.meta.url);
 
-async function loadContentConfig() {
-  const source = await readFile(new URL('content-config.js', routeUrl), 'utf8');
-  const context = { window: {} };
-  vm.runInNewContext(source, context, { filename: 'content-config.js' });
-  return { source, config: context.window.TERM_TEST_CONTENT };
-}
-
-function collectSlots(section, property) {
-  return [...section[property].matchAll(/data-answer-slot="(\d+)"/g)].map(match => Number(match[1]));
-}
-
-test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả lời cho mỗi kỹ năng', async () => {
-  const { source, config } = await loadContentConfig();
-  assert.equal(config.variant, 'semantic-html');
-  assert.equal(config.baseTestSlug, 'term-test-2');
-  assert.equal(config.listening.sections.length, 4);
-  assert.equal(config.reading.sections.length, 3);
-  assert.equal(config.writing.tasks.length, 2);
-
-  const listeningSlots = Array.from(config.listening.sections).flatMap(section => collectSlots(section, 'html'));
-  const readingSlots = Array.from(config.reading.sections).flatMap(section => collectSlots(section, 'questionsHtml'));
-  const expected = Array.from({ length: 40 }, (_, index) => index + 1);
-  assert.deepEqual(listeningSlots.slice().sort((a, b) => a - b), expected);
-  assert.deepEqual(readingSlots.slice().sort((a, b) => a - b), expected);
-  assert.equal(new Set(listeningSlots).size, 40, 'Listening có câu bị lặp');
-  assert.equal(new Set(readingSlots).size, 40, 'Reading có câu bị lặp');
-
-  const listeningPart3 = config.listening.sections[2].html;
-  assert.match(listeningPart3, /data-control="multi"/);
-  assert.match(listeningPart3, /data-question-numbers="29,30"/);
-  assert.equal([...listeningPart3.matchAll(/data-choice-value="[A-E]"/g)].length, 11, 'Part 3 phải có 6 lựa chọn radio và 5 lựa chọn checkbox');
-
-  const readingPassage1 = config.reading.sections[0].questionsHtml;
-  assert.match(readingPassage1, /data-choice-value="TRUE">\s*<span>True<\/span>\s*<\/label>/);
-  assert.match(readingPassage1, /data-choice-value="FALSE">\s*<span>False<\/span>\s*<\/label>/);
-  assert.match(readingPassage1, /data-choice-value="NOT GIVEN">\s*<span>Not given<\/span>\s*<\/label>/);
-  assert.doesNotMatch(readingPassage1, /cbt-choice-letter">(?:TRUE|FALSE|NOT GIVEN)<\/span>/);
-
-  const readingPassage2 = config.reading.sections[1].questionsHtml;
-  assert.equal([...readingPassage2.matchAll(/data-control="multi"/g)].length, 2);
-  assert.match(readingPassage2, /data-question-numbers="23,24"/);
-  assert.match(readingPassage2, /data-question-numbers="25,26"/);
-  assert.equal([...readingPassage2.matchAll(/data-choice-value="[A-E]"/g)].length, 10);
-  assert.doesNotMatch(readingPassage2, /cbt-double-choice/);
-
-  for (const section of Array.from(config.reading.sections)) {
-    assert.match(section.passageHtml, /<p>|cbt-lettered-paragraph/);
-    assert.match(section.questionsHtml, /data-answer-slot=/);
-    assert.ok(section.passageHtml.length > 2_000, 'Passage HTML quá ngắn: ' + section.label);
-  }
-
-  assert.equal(/page-\d+\.png|inline-on-paper/i.test(source), false, 'Listening và Reading HTML không được phụ thuộc ảnh scan');
-  assert.match(source, /cbt-question-card/);
-  assert.match(source, /cbt-test-table/);
-  assert.equal(/correctAnswer|answerKey|accepted\s*:/i.test(source), false, 'Cấu hình nội dung không được chứa đáp án đúng');
-
-  const audioInfo = await stat(new URL(config.audio.src, routeUrl));
-  assert.ok(audioInfo.isFile(), 'Thiếu audio Listening');
-  assert.ok(audioInfo.size > 10_000, 'Audio quá nhỏ hoặc hỏng');
-  assert.ok(audioInfo.size < 25 * 1024 * 1024, 'Audio cần được tối ưu trước khi đẩy Git');
-
-  const [task1, task2] = Array.from(config.writing.tasks);
-  assert.equal(task1.id, 'task1');
-  assert.equal(task1.minimumWords, 150);
-  assert.equal(task1.recommendedMinutes, 20);
-  assert.match(task1.prompt, /physical activities between 2001 and 2009/i);
-  assert.match(task1.followUp, /selecting and reporting the main features/i);
-  assert.equal(task2.id, 'task2');
-  assert.equal(task2.minimumWords, 250);
-  assert.equal(task2.recommendedMinutes, 40);
-  assert.match(task2.prompt, /decline in writing by hand/i);
-  const task1Image = await stat(new URL(task1.image.src, routeUrl));
-  assert.ok(task1Image.isFile(), 'Thiếu biểu đồ Writing Task 1');
-  assert.ok(task1Image.size > 10_000, 'Biểu đồ Writing Task 1 quá nhỏ hoặc hỏng');
-});
-
-test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cường giao diện', async () => {
+test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề hay audio rõ', async () => {
   const html = await readFile(new URL('index.html', routeUrl), 'utf8');
-  const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
-  const configIndex = html.indexOf('../term-test-2/test-config.js');
-  const contentIndex = html.indexOf('content-config.js');
-  const sharedAppIndex = html.indexOf('../shared/app.js');
-  const audioLoaderIndex = html.indexOf('audio-loader.js');
-  const enhanceIndex = html.indexOf('enhance.js');
-  assert.ok(configIndex >= 0);
-  assert.ok(configIndex < contentIndex);
-  assert.ok(contentIndex < sharedAppIndex);
-  assert.ok(sharedAppIndex < audioLoaderIndex);
-  assert.ok(audioLoaderIndex < enhanceIndex);
-  assert.match(html, /media-src 'self' blob:/);
-  assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v19/);
-  assert.match(styles, /\.cbt-mode \.topbar > p\s*{\s*display: none;/);
-  assert.match(styles, /\.cbt-mode \.topbar h1\s*{[^}]*font-size: clamp\(20px, 2vw, 24px\)/s);
+  const bootstrap = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  assert.match(html, /term-test-2\/test-config\.js/);
+  assert.match(html, /audio-loader\.js/);
+  assert.match(html, /bootstrap\.js/);
+  assert.doesNotMatch(html, /content-config\.js/);
+  assert.doesNotMatch(html, /shared\/app\.js/);
+  assert.doesNotMatch(html, /enhance\.js/);
+  assert.match(html, /cbt-v20/);
+  await assert.rejects(access(new URL('content-config.js', routeUrl)));
+  await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
+  assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
 });
 
-test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
+test('phòng chờ tải audio mã hóa, nghe bản thử rồi mới xin khóa và nạp đề', async () => {
+  const source = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  assert.match(source, /session\/prepare/);
+  assert.match(source, /encryptedAudioUrl/);
+  assert.match(source, /previewAudioUrl/);
+  assert.match(source, /session\/start/);
+  assert.match(source, /crypto\.subtle\.importKey/);
+  assert.match(source, /crypto\.subtle\.decrypt/);
+  assert.match(source, /magic !== response\.audioEnvelope\.magic/);
+  assert.match(source, /window\.TERM_TEST_CONTENT = Object\.freeze\(started\.content\)/);
+  assert.match(source, /await officialAudio\.play\(\)/);
+  const playIndex = source.indexOf('await officialAudio.play()');
+  const enterIndex = source.indexOf('await enterExam(started, officialAudio)');
+  assert.ok(playIndex >= 0 && enterIndex > playIndex, 'Audio chính phải phát thành công trước khi nạp giao diện đề');
+  assert.match(source, /audioVolume/);
+  assert.match(source, /audioVolume: Number\(state\.audioVolume\) \|\| 1/);
+  assert.match(source, /serverTimeOffsetMs/);
+  assert.match(source, /listeningDeadlineAt/);
+  assert.match(source, /session\/resume-attempt/);
+  assert.match(source, /legacyElapsedSeconds/);
+  assert.match(source, /legacyUiState\.audioTime/);
+  assert.match(source, /const sameStudent = selectedRef === state\.studentRef/);
+  assert.match(source, /examSessionToken: sameStudent \? state\.examSessionToken : ''/);
+});
+
+test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline máy chủ cho ba kỹ năng', async () => {
   const source = await readFile(new URL('enhance.js', routeUrl), 'utf8');
   assert.equal(/correctAnswer|answerKey|accepted\s*:/i.test(source), false);
-  assert.equal(/API_BASE_URL|\/api\/term-tests\//.test(source), false);
-  assert.equal(/\.png|createInlineAnswer|cbt-page-frame/.test(source), false);
-  assert.match(source, /shared\/app\.js/);
   assert.match(source, /attachAnswerFields/);
   assert.match(source, /syncMultiFields/);
   assert.match(source, /createSectionPager/);
   assert.match(source, /compactIdentityPanel/);
   assert.match(source, /topbarTitle\.textContent = 'Term test 2'/);
-  assert.match(source, /placeSubmitInHeading/);
-  assert.match(source, /actions\.remove\(\)/);
   assert.match(source, /Previous ['"] \+ noun/);
   assert.match(source, /Next ['"] \+ noun/);
-  assert.match(source, /grid\.replaceChildren\(source\.pane\)/);
-  assert.match(source, /field\.dispatchEvent\(new Event\('input'/);
-  assert.match(source, /setupBufferedAudio/);
-  assert.match(source, /TERM_TEST_AUDIO_LOADER/);
-  assert.match(source, /cbt-listening-lobby/);
-  assert.match(source, /previewTime >= 30/);
-  assert.match(source, /previewHeard/);
-  assert.match(source, /restoreStudentSelection/);
-  assert.match(source, /hasSelectedStudent/);
-  assert.match(source, /updateStartAvailability/);
-  assert.match(source, /studentSelect\.disabled = true/);
-  assert.match(source, /Họ và tên đã xác nhận/);
-  assert.match(source, /setListeningVisible\(false\)/);
-  assert.match(source, /region\.hidden = !visible/);
-  assert.match(source, /region\.inert = !visible/);
-  assert.match(source, /URL\.createObjectURL\(blob\)/);
+  assert.match(source, /protectedBootstrap\?\.officialAudioElement/);
+  assert.match(source, /uiState\.audio\.volume = preparedVolume/);
+  assert.match(source, /setupListeningTimer/);
+  assert.match(source, /listeningDeadlineAt/);
+  assert.match(source, /listeningTimeExpired/);
   assert.match(source, /setupReadingTimer/);
-  assert.match(source, /60 \* 60 \* 1000/);
-  assert.match(source, /readingTimer\.deadline/);
-  assert.match(source, /readingTimer\.attemptToken/);
-  assert.match(source, /submissionStorageKey/);
-  assert.match(source, /\[sessionStorage, localStorage\]/);
-  assert.match(source, /Math\.ceil\(remainingMs \/ 60_000\)/);
-  assert.match(source, /minutes <= 10 && minutes > 0/);
-  assert.match(source, /requestSubmit\(autoSubmitButton\)/);
+  assert.match(source, /readingDeadlineAt/);
   assert.match(source, /setupWritingTimer/);
-  assert.match(source, /writingTimer\.deadline/);
-  assert.match(source, /writingTimer\.attemptToken/);
-  assert.match(source, /cbt-writing-clock/);
-  assert.match(source, /writingTimeExpired/);
-  assert.match(source, /term-test:writing-submitted/);
-
-  const startHandlerIndex = source.indexOf("startButton.addEventListener('click'");
-  const restoreStudentIndex = source.indexOf('restoreStudentSelection()', startHandlerIndex);
-  const officialPlayIndex = source.indexOf('await audio.play()', startHandlerIndex);
-  const lockStudentIndex = source.indexOf('lockStudentSelection()', officialPlayIndex);
-  const revealIndex = source.indexOf('setListeningVisible(true)', startHandlerIndex);
-  assert.ok(restoreStudentIndex > startHandlerIndex && restoreStudentIndex < officialPlayIndex);
-  assert.ok(startHandlerIndex >= 0 && officialPlayIndex > startHandlerIndex);
-  assert.ok(lockStudentIndex > officialPlayIndex && lockStudentIndex < revealIndex);
-  assert.ok(revealIndex > officialPlayIndex, 'Chỉ được hiện đề sau khi audio chính thức phát thành công');
+  assert.match(source, /writingDeadlineAt/);
+  assert.match(source, /requestSubmit\(autoSubmit/);
+  assert.match(source, /minutes <= 10 && minutes > 0/);
 });
 
-test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo không gọi dữ liệu thật', async () => {
+test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Reading', async () => {
   const source = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
-  assert.match(source, /viewListeningResult/);
-  assert.match(source, /continueReadingFromResult/);
-  assert.match(source, /Reading chưa bị tính là 0 điểm/);
-  assert.match(source, /\['complete', 'listening-only', 'writing-prep', 'writing'\]/);
-  assert.match(source, /result\.reading\)/);
-  assert.match(source, /portalSyncStatus/);
-  assert.match(source, /skillPerformanceSections/);
-  assert.match(source, /renderSkillPerformance\('Listening'/);
-  assert.match(source, /renderSkillPerformance\('Reading'/);
-  assert.match(source, /splitSkillPerformance/);
-  assert.match(source, /event\.submitter\?\.dataset\.autoSubmit/);
-  assert.match(source, /readingSubmitting/);
-  assert.match(source, /!automatic && !confirmIncomplete/);
+  assert.match(source, /examSessionToken/);
+  assert.match(source, /listening\/draft/);
+  assert.match(source, /reading\/draft/);
+  assert.match(source, /reading\/start/);
+  assert.match(source, /scheduleSectionDraft/);
+  assert.match(source, /frozenAnswers/);
+  assert.match(source, /setAnswerControlsLocked\('listening', true\)/);
+  assert.match(source, /setAnswerControlsLocked\('reading', true\)/);
+  assert.match(source, /term-test:listening-submitted/);
   assert.match(source, /term-test:reading-submitted/);
-  assert.match(source, /event\.submitter\?\.dataset\.autoSubmit/);
-  assert.match(source, /writingTimeExpired/);
-  assert.match(source, /!automatic && belowMinimum\.length/);
-  assert.match(source, /term-test:writing-submitted/);
-  assert.match(source, /editor\.readOnly = timeExpired/);
-  assert.match(source, /Còn 10 phút đồng hồ sẽ chuyển đỏ/);
-  assert.match(source, /function hideNotice\(\)/);
-  assert.match(source, /elements\.notice\.hidden = false/);
-  assert.doesNotMatch(source, /Đã tải \$\{state\.roster\.length\} học viên/);
-  assert.match(source, /setStage\('writing-prep'\)/);
-  assert.match(source, /writingStarted/);
-  assert.match(source, /writingSubmitted/);
-  assert.match(source, /writingDirty/);
-  assert.match(source, /\[sessionStorage, localStorage\]/);
-  assert.match(source, /\/api\/term-tests\/writing/);
-  assert.match(source, /saveWritingToServer\('draft'\)/);
-  assert.match(source, /saveWritingToServer\('submit'\)/);
-  assert.match(source, /applyWritingFromServer/);
-  assert.match(source, /step\.dataset\.progress !== activeProgress && completed/);
-  assert.match(source, /setupWritingExam/);
-  assert.match(source, /role', 'separator'/);
-  assert.match(source, /setPointerCapture/);
-  assert.match(source, /spellcheck = false/);
-  assert.match(source, /navigator\.clipboard/);
-  assert.match(source, /Sao chép \$\{task\.label\}/);
-  assert.match(source, /renderWritingSubmission/);
+  assert.match(source, /if \(state\.readingDeadlineAt\)/);
+  assert.match(source, /Đồng hồ máy chủ không dừng khi tải lại trang/);
+  assert.match(source, /writingDeadlineAt/);
+  assert.match(source, /audioVolume: state\.audioVolume/);
   assert.match(source, /await loadResult\(elements\.viewResult\)/);
   assert.doesNotMatch(source, /addSummaryCard\('Tổng điểm'/);
+});
+
+test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia ở desktop', async () => {
+  const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
+  assert.match(styles, /grid-template-columns: minmax\(280px, var\(--writing-left, 47%\)\) 12px minmax\(360px, 1fr\)/);
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.writing-split\s*{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.writing-separator\s*{\s*display: none;/);
+  assert.doesNotMatch(styles, /\.writing-divider/);
 });
