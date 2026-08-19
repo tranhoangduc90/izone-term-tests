@@ -1269,9 +1269,7 @@
   document.body.classList.add('cbt-mode', 'cbt-semantic-mode');
   compactIdentityPanel();
   const topbarTitle = document.querySelector('.topbar h1');
-  const topbarIntro = document.querySelector('.topbar h1 + p');
-  if (topbarTitle) topbarTitle.textContent = contentConfig.title;
-  if (topbarIntro) topbarIntro.textContent = 'Listening, Reading và Writing nằm trong cùng một trải nghiệm thi trên máy. Kết quả Listening và Reading chỉ mở sau khi nộp Writing.';
+  if (topbarTitle) topbarTitle.textContent = 'Term test 2';
 
   const loadingLabel = document.querySelector('#loadingView strong');
   const listeningSavedCopy = document.querySelector('#listeningSavedView > p:not(.eyebrow)');

@@ -83,6 +83,7 @@ test('bản computer-based dùng HTML thật và có đúng 40 vị trí trả l
 
 test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cường giao diện', async () => {
   const html = await readFile(new URL('index.html', routeUrl), 'utf8');
+  const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
   const configIndex = html.indexOf('../term-test-2/test-config.js');
   const contentIndex = html.indexOf('content-config.js');
   const sharedAppIndex = html.indexOf('../shared/app.js');
@@ -95,7 +96,9 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v18/);
+  assert.match(html, /cbt-v19/);
+  assert.match(styles, /\.cbt-mode \.topbar > p\s*{\s*display: none;/);
+  assert.match(styles, /\.cbt-mode \.topbar h1\s*{[^}]*font-size: clamp\(20px, 2vw, 24px\)/s);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -108,6 +111,7 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /syncMultiFields/);
   assert.match(source, /createSectionPager/);
   assert.match(source, /compactIdentityPanel/);
+  assert.match(source, /topbarTitle\.textContent = 'Term test 2'/);
   assert.match(source, /placeSubmitInHeading/);
   assert.match(source, /actions\.remove\(\)/);
   assert.match(source, /Previous ['"] \+ noun/);
