@@ -1086,13 +1086,6 @@
       image.className = 'writing-feedback-image';
       sourcePane.append(image);
     }
-    const essayTitle = document.createElement('h3');
-    essayTitle.textContent = 'Bài làm của học viên';
-    const essay = document.createElement('div');
-    essay.className = 'writing-feedback-essay';
-    essay.textContent = essayValue || 'Học viên không nhập nội dung.';
-    sourcePane.append(essayTitle, essay);
-
     const scorePane = document.createElement('section');
     scorePane.className = 'writing-feedback-scores';
     const scoreTitle = document.createElement('h3');
