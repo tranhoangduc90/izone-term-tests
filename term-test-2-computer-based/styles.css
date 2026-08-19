@@ -10,6 +10,338 @@
   --cbt-line: #d9e0e9;
 }
 
+/* Kết quả Writing: chỉ mở điểm khi hai Task đã hoàn tất và giữ popup dễ đọc trên mọi màn hình. */
+.writing-score-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.writing-score-card {
+  display: flex;
+  min-height: 118px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  padding: 18px;
+  border: 1px solid #cbdcf2;
+  border-radius: 16px;
+  background: #f7faff;
+  color: #123968;
+  text-align: left;
+}
+
+.writing-score-card span {
+  color: #5b6f8d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.writing-score-card strong {
+  color: #123968;
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1;
+}
+
+.writing-score-card small {
+  color: #5f7390;
+  font-size: 12px;
+}
+
+button.writing-score-card {
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+button.writing-score-card:hover,
+button.writing-score-card:focus-visible {
+  border-color: #2f70e8;
+  box-shadow: 0 9px 24px rgb(28 80 151 / 16%);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.writing-score-card.is-overall {
+  border-color: #1b4e85;
+  background: linear-gradient(145deg, #143f70, #1d5a98);
+}
+
+.writing-score-card.is-overall span,
+.writing-score-card.is-overall strong,
+.writing-score-card.is-overall small {
+  color: #fff;
+}
+
+.writing-grading-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 16px 0 20px;
+  padding: 16px 18px;
+  border: 1px solid #9fc1ed;
+  border-radius: 15px;
+  background: #eef6ff;
+}
+
+.writing-grading-status.needs-review {
+  border-color: #e7c77e;
+  background: #fff8e8;
+}
+
+.writing-grading-status strong {
+  color: #123968;
+  font-size: 16px;
+}
+
+.writing-grading-status p {
+  margin: 5px 0 0;
+  color: #526a88;
+  line-height: 1.5;
+}
+
+.writing-feedback-dialog {
+  width: min(1180px, calc(100vw - 32px));
+  max-width: none;
+  height: min(820px, calc(100dvh - 32px));
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgb(7 31 64 / 35%);
+}
+
+.writing-feedback-dialog::backdrop {
+  background: rgb(8 29 55 / 70%);
+  backdrop-filter: blur(3px);
+}
+
+.writing-feedback-shell {
+  display: grid;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.writing-feedback-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #dbe5f2;
+  background: #173f70;
+  color: #fff;
+}
+
+.writing-feedback-header span {
+  color: #b8d4f5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.writing-feedback-header h2 {
+  margin: 4px 0 2px;
+  color: #fff;
+  font-size: clamp(20px, 2.3vw, 28px);
+}
+
+.writing-feedback-header p {
+  margin: 0;
+  color: #dceafa;
+  font-size: 13px;
+}
+
+.writing-feedback-close {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  cursor: pointer;
+  font: 300 30px/1 Arial, sans-serif;
+}
+
+.writing-feedback-close:hover,
+.writing-feedback-close:focus-visible {
+  background: rgb(255 255 255 / 24%);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.writing-feedback-layout {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(300px, 42%) minmax(0, 1fr);
+}
+
+.writing-feedback-source,
+.writing-feedback-scores {
+  min-height: 0;
+  padding: 22px;
+  overflow: auto;
+}
+
+.writing-feedback-source {
+  border-right: 1px solid #dbe5f2;
+  background: #f7f9fc;
+}
+
+.writing-feedback-source h3,
+.writing-feedback-scores > h3 {
+  margin: 0 0 12px;
+  color: #153f70;
+  font-size: 16px;
+}
+
+.writing-feedback-source h3:not(:first-child) {
+  margin-top: 24px;
+}
+
+.writing-feedback-prompt,
+.writing-feedback-essay,
+.writing-feedback-text,
+.writing-component-list p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+
+.writing-feedback-prompt {
+  margin: 0 0 10px;
+  color: #243c5b;
+}
+
+.writing-feedback-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 16px 0;
+  border: 1px solid #ccd8e7;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.writing-feedback-essay {
+  padding: 16px;
+  border: 1px solid #d6e0ec;
+  border-radius: 12px;
+  background: #fff;
+  color: #182d48;
+}
+
+.writing-feedback-scores {
+  background: #fff;
+}
+
+.writing-criterion-card {
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid #d7e2ef;
+  border-radius: 14px;
+  background: #fbfdff;
+}
+
+.writing-criterion-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.writing-criterion-card h4 {
+  margin: 0;
+  color: #173f70;
+  font-size: 15px;
+}
+
+.writing-criterion-card > header strong {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #e6f0ff;
+  color: #1659ac;
+  font-size: 13px;
+}
+
+.writing-feedback-text {
+  margin: 12px 0 0;
+  color: #354d69;
+}
+
+.writing-component-list {
+  margin-top: 14px;
+  border-top: 1px solid #e0e8f1;
+}
+
+.writing-component-list details {
+  padding: 11px 0;
+  border-bottom: 1px solid #e7edf4;
+}
+
+.writing-component-list summary {
+  color: #24558b;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.writing-component-list p {
+  margin: 10px 0 0;
+  color: #4a6079;
+}
+
+@media (max-width: 760px) {
+  .writing-score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .writing-score-card {
+    min-height: 100px;
+  }
+
+  .writing-grading-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .writing-feedback-dialog {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  .writing-feedback-header {
+    padding: 14px 16px;
+  }
+
+  .writing-feedback-layout {
+    display: block;
+    overflow: auto;
+  }
+
+  .writing-feedback-source,
+  .writing-feedback-scores {
+    overflow: visible;
+    padding: 18px;
+  }
+
+  .writing-feedback-source {
+    border-right: 0;
+    border-bottom: 1px solid #dbe5f2;
+  }
+}
+
 .cbt-mode {
   background: #e8edf3;
 }

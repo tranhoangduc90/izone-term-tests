@@ -220,7 +220,7 @@
         <p class="eyebrow">${writingConfig ? 'Đã nộp Writing' : 'Đã chấm xong'}</p>
         <h2>Kết quả của bạn đã sẵn sàng</h2>
         <p>${writingConfig
-          ? 'Listening và Reading đã được chấm, phân tích; hai bài Writing được giữ nguyên để bạn sao chép.'
+          ? 'Listening và Reading đã được chấm, phân tích. Writing đang được chấm riêng và sẽ hiện điểm khi đủ cả hai Task.'
           : 'Cả Listening và Reading đã được lưu, chấm và phân tích theo từng dạng bài.'}</p>
         <button class="button button-primary" id="viewResult" type="button">Xem kết quả</button>
       </section>
@@ -283,6 +283,7 @@
 
   function setStage(stage) {
     state.stage = stage;
+    if (stage !== 'result') stopWritingGradingPolling();
     for (const view of views) view.hidden = true;
     const activeProgress = stage === 'listening' || stage === 'listening-saved'
       ? 'listening'
@@ -460,6 +461,56 @@
   let writingRetryTimer = 0;
   let writingSavePromise = Promise.resolve();
   let writingRevision = 0;
+  let writingGradingPollTimer = 0;
+  let writingGradingPollStartedAt = 0;
+  let writingGradingPollCount = 0;
+  let writingGradingPollInFlight = false;
+
+  function stopWritingGradingPolling() {
+    window.clearTimeout(writingGradingPollTimer);
+    writingGradingPollTimer = 0;
+    writingGradingPollStartedAt = 0;
+    writingGradingPollCount = 0;
+  }
+
+  async function refreshWritingGrading() {
+    if (demoMode || !state.attemptToken || writingGradingPollInFlight) return;
+    writingGradingPollInFlight = true;
+    try {
+      const payload = await apiRequest('/api/term-tests/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptToken: state.attemptToken })
+      });
+      applyWritingFromServer(payload.writing, Boolean(payload.writing?.submitted));
+      renderResult(payload);
+      if (payload.writing?.grading?.ready) stopWritingGradingPolling();
+    } catch {
+      // Việc chấm vẫn nằm trên máy chủ; lần kế tiếp tiếp tục kiểm tra mà không làm mất màn hình kết quả.
+    } finally {
+      writingGradingPollInFlight = false;
+      if (!state.result?.writing?.grading?.ready) scheduleWritingGradingRefresh();
+    }
+  }
+
+  function scheduleWritingGradingRefresh() {
+    const grading = state.result?.writing?.grading;
+    if (
+      demoMode
+      || !state.writingSubmitted
+      || grading?.ready
+      || grading?.status === 'review_required'
+      || writingGradingPollTimer
+    ) return;
+    if (!writingGradingPollStartedAt) writingGradingPollStartedAt = Date.now();
+    if (Date.now() - writingGradingPollStartedAt > 45 * 60 * 1000) return;
+    const delay = Math.min(30_000, 8_000 + (writingGradingPollCount * 2_000));
+    writingGradingPollCount += 1;
+    writingGradingPollTimer = window.setTimeout(() => {
+      writingGradingPollTimer = 0;
+      refreshWritingGrading();
+    }, delay);
+  }
 
   function setWritingSaveStatus(message) {
     for (const label of document.querySelectorAll('.writing-editor-meta > span:first-child')) {
@@ -813,6 +864,131 @@
     if (!copied) throw new Error('COPY_FAILED');
   }
 
+  function formatBand(value) {
+    const band = Number(value);
+    return Number.isFinite(band) ? String(band) : '—';
+  }
+
+  function criterionTitle(code, taskNumber) {
+    return {
+      TA: 'Task Achievement',
+      TR: 'Task Response',
+      CC: 'Coherence & Cohesion',
+      LR: 'Lexical Resource',
+      GRA: 'Grammatical Range & Accuracy'
+    }[code] || `${taskNumber === 1 ? 'Task 1' : 'Task 2'} · ${code}`;
+  }
+
+  function openWritingFeedback(taskResult) {
+    const taskNumber = Number(taskResult?.taskNumber);
+    const task = Array.from(writingConfig?.tasks || []).find(item => item.id === `task${taskNumber}`);
+    if (!task) return;
+    const essayValue = state.drafts.writing[task.id] || '';
+    const dialog = document.createElement('dialog');
+    dialog.className = 'writing-feedback-dialog';
+    dialog.setAttribute('aria-labelledby', `writingFeedbackTitle${taskNumber}`);
+
+    const shell = document.createElement('div');
+    shell.className = 'writing-feedback-shell';
+    const header = document.createElement('header');
+    header.className = 'writing-feedback-header';
+    const headerCopy = document.createElement('div');
+    const eyebrow = document.createElement('span');
+    eyebrow.textContent = `Kết quả ${task.label}`;
+    const title = document.createElement('h2');
+    title.id = `writingFeedbackTitle${taskNumber}`;
+    title.textContent = `${task.label} · Band ${formatBand(taskResult.taskScore)}`;
+    const meta = document.createElement('p');
+    meta.textContent = `${Number(taskResult.wordCount || countWords(essayValue))} từ · Chấm theo 4 tiêu chí IELTS`;
+    headerCopy.append(eyebrow, title, meta);
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'writing-feedback-close';
+    closeButton.setAttribute('aria-label', 'Đóng bài chấm Writing');
+    closeButton.textContent = '×';
+    closeButton.addEventListener('click', () => dialog.close());
+    header.append(headerCopy, closeButton);
+
+    const layout = document.createElement('div');
+    layout.className = 'writing-feedback-layout';
+    const sourcePane = document.createElement('section');
+    sourcePane.className = 'writing-feedback-source';
+    const promptTitle = document.createElement('h3');
+    promptTitle.textContent = 'Đề bài';
+    const prompt = document.createElement('p');
+    prompt.className = 'writing-feedback-prompt';
+    prompt.textContent = task.prompt || '';
+    sourcePane.append(promptTitle, prompt);
+    if (task.followUp) {
+      const followUp = document.createElement('p');
+      followUp.className = 'writing-feedback-prompt';
+      followUp.textContent = task.followUp;
+      sourcePane.append(followUp);
+    }
+    if (task.image) {
+      const image = document.createElement('img');
+      image.src = typeof task.image === 'object' ? task.image.src : task.image;
+      image.alt = typeof task.image === 'object' && task.image.alt
+        ? task.image.alt
+        : `Hình minh họa ${task.label}`;
+      image.className = 'writing-feedback-image';
+      sourcePane.append(image);
+    }
+    const essayTitle = document.createElement('h3');
+    essayTitle.textContent = 'Bài làm của học viên';
+    const essay = document.createElement('div');
+    essay.className = 'writing-feedback-essay';
+    essay.textContent = essayValue || 'Học viên không nhập nội dung.';
+    sourcePane.append(essayTitle, essay);
+
+    const scorePane = document.createElement('section');
+    scorePane.className = 'writing-feedback-scores';
+    const scoreTitle = document.createElement('h3');
+    scoreTitle.textContent = 'Nhận xét theo tiêu chí';
+    scorePane.append(scoreTitle);
+    for (const criterion of Array.from(taskResult.criteria || [])) {
+      const card = document.createElement('article');
+      card.className = 'writing-criterion-card';
+      const criterionHeader = document.createElement('header');
+      const criterionName = document.createElement('h4');
+      criterionName.textContent = criterion.name || criterionTitle(criterion.code, taskNumber);
+      const criterionScore = document.createElement('strong');
+      criterionScore.textContent = `Band ${formatBand(criterion.bandScore)}`;
+      criterionHeader.append(criterionName, criterionScore);
+      const feedback = document.createElement('p');
+      feedback.className = 'writing-feedback-text';
+      feedback.textContent = criterion.feedback || 'Chưa có nhận xét tổng hợp.';
+      card.append(criterionHeader, feedback);
+
+      const components = Array.from(criterion.components || []);
+      if (components.length) {
+        const componentList = document.createElement('div');
+        componentList.className = 'writing-component-list';
+        for (const component of components) {
+          const details = document.createElement('details');
+          const summary = document.createElement('summary');
+          summary.textContent = component.label || component.code;
+          const componentText = document.createElement('p');
+          componentText.textContent = [component.summary, component.feedback].filter(Boolean).join('\n\n')
+            || 'Chưa có nhận xét chi tiết.';
+          details.append(summary, componentText);
+          componentList.append(details);
+        }
+        card.append(componentList);
+      }
+      scorePane.append(card);
+    }
+    layout.append(sourcePane, scorePane);
+    shell.append(header, layout);
+    dialog.append(shell);
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
   function renderWritingSubmission() {
     if (!writingConfig || !elements.writingSubmissionResult) return;
     elements.writingSubmissionResult.hidden = !state.writingSubmitted;
@@ -823,17 +999,79 @@
 
     const section = document.createElement('section');
     section.className = 'writing-result-section';
+    const grading = state.result?.writing?.grading || null;
     const heading = document.createElement('header');
     heading.className = 'writing-result-heading';
     const headingCopy = document.createElement('div');
     const eyebrow = document.createElement('span');
-    eyebrow.textContent = 'Bản nộp nguyên văn';
+    eyebrow.textContent = grading?.ready ? 'Kết quả Writing' : 'Bài Writing đã nộp';
     const title = document.createElement('h3');
-    title.textContent = 'Bài làm Writing';
+    title.textContent = grading?.ready ? 'Điểm và bài chấm Writing' : 'Hệ thống đang chấm Writing';
     headingCopy.append(eyebrow, title);
     const note = document.createElement('p');
-    note.textContent = 'Phần này chưa chấm điểm. Dùng nút riêng của từng Task để sao chép nội dung.';
+    note.textContent = grading?.ready
+      ? 'Nhấn vào điểm Task 1 hoặc Task 2 để xem bài chấm chi tiết.'
+      : grading?.status === 'review_required'
+        ? 'Bài làm đã được giữ an toàn; một phần chấm cần giáo viên kiểm tra trước khi công bố.'
+        : 'Điểm chỉ được mở khi cả Task 1 và Task 2 đã chấm hoàn chỉnh.';
     heading.append(headingCopy, note);
+
+    const gradingArea = document.createElement('div');
+    if (grading?.ready) {
+      gradingArea.className = 'writing-score-grid';
+      const tasksByNumber = new Map(Array.from(grading.tasks || []).map(task => [Number(task.taskNumber), task]));
+      for (const taskNumber of [1, 2]) {
+        const taskResult = tasksByNumber.get(taskNumber);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'writing-score-card is-action';
+        const label = document.createElement('span');
+        label.textContent = `Writing Task ${taskNumber}`;
+        const score = document.createElement('strong');
+        score.textContent = `Band ${formatBand(taskResult?.taskScore)}`;
+        const action = document.createElement('small');
+        action.textContent = 'Xem bài chấm chi tiết →';
+        button.append(label, score, action);
+        button.addEventListener('click', () => openWritingFeedback(taskResult));
+        gradingArea.append(button);
+      }
+      const overall = document.createElement('article');
+      overall.className = 'writing-score-card is-overall';
+      const overallLabel = document.createElement('span');
+      overallLabel.textContent = 'Writing tổng';
+      const overallScore = document.createElement('strong');
+      overallScore.textContent = `Band ${formatBand(grading.writingScore)}`;
+      const formula = document.createElement('small');
+      formula.textContent = 'Task 1 × 1 · Task 2 × 2';
+      overall.append(overallLabel, overallScore, formula);
+      gradingArea.append(overall);
+    } else {
+      gradingArea.className = `writing-grading-status${grading?.status === 'review_required' ? ' needs-review' : ''}`;
+      const statusCopy = document.createElement('div');
+      const statusTitle = document.createElement('strong');
+      statusTitle.textContent = grading?.status === 'review_required'
+        ? 'Bài chấm đang được kiểm tra'
+        : 'Đang chấm Task 1 và Task 2';
+      const statusText = document.createElement('p');
+      statusText.textContent = grading?.status === 'review_required'
+        ? 'Bạn có thể đóng trang; kết quả vẫn được lưu và sẽ hiện khi hoàn chỉnh.'
+        : 'Bạn có thể đóng trang và mở lại sau; bài làm và tiến độ chấm đều nằm trên hệ thống.';
+      statusCopy.append(statusTitle, statusText);
+      const refresh = document.createElement('button');
+      refresh.type = 'button';
+      refresh.className = 'button button-secondary';
+      refresh.textContent = 'Kiểm tra lại';
+      refresh.addEventListener('click', async () => {
+        refresh.disabled = true;
+        refresh.textContent = 'Đang kiểm tra...';
+        await refreshWritingGrading();
+        if (refresh.isConnected) {
+          refresh.disabled = false;
+          refresh.textContent = 'Kiểm tra lại';
+        }
+      });
+      gradingArea.append(statusCopy, refresh);
+    }
 
     const cards = document.createElement('div');
     cards.className = 'writing-result-grid';
@@ -870,7 +1108,7 @@
       card.append(cardHeader, essay);
       cards.append(card);
     }
-    section.append(heading, cards);
+    section.append(heading, gradingArea, cards);
     elements.writingSubmissionResult.replaceChildren(section);
   }
 
@@ -1044,7 +1282,9 @@
       addSummaryCard('Reading', hasReading ? `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}` : 'Chưa nộp')
     );
     elements.resultStatus.textContent = hasReading
-      ? 'Bạn đã hoàn thành cả Listening và Reading. Kết quả và phân tích được tách riêng theo từng kỹ năng ở bên dưới.'
+      ? payload.writing?.grading?.ready
+        ? 'Listening và Reading được phân tích riêng; điểm Writing đã hoàn tất và có bài chấm chi tiết theo từng Task.'
+        : 'Listening và Reading được phân tích riêng. Writing đang được chấm và chưa hiện điểm thành phần.'
       : 'Listening đã được chấm và lưu riêng. Phân tích dưới đây chỉ dùng bài Listening; Reading chưa bị tính là 0 điểm.';
     elements.continueReadingFromResult.hidden = hasReading || Boolean(demoMode);
     renderWritingSubmission();
@@ -1054,6 +1294,7 @@
     const performanceSections = [renderSkillPerformance('Listening', result.listening)];
     if (hasReading) performanceSections.push(renderSkillPerformance('Reading', result.reading));
     elements.skillPerformanceSections.replaceChildren(...performanceSections);
+    if (payload.writing?.grading?.ready) stopWritingGradingPolling();
   }
 
   function portalNotice(status, completed) {
@@ -1084,6 +1325,7 @@
       renderResult(payload);
       showNotice(portalNotice(payload.portalSyncStatus, payload.completed), payload.portalSyncStatus === 'pending' ? '' : 'success');
       setStage('result');
+      scheduleWritingGradingRefresh();
     } catch (error) {
       showNotice(`Không thể tải kết quả: ${error.message}`, 'error');
     } finally {
@@ -1366,11 +1608,62 @@
       percentage: stat.total ? stat.correct / stat.total : 0
     }));
     const sorted = [...typeStats].sort((left, right) => right.percentage - left.percentage);
+    const demoWriting = mode === 'complete' ? {
+      task1: state.drafts.writing.task1,
+      task2: state.drafts.writing.task2,
+      started: true,
+      submitted: true,
+      grading: {
+        status: 'ready',
+        ready: true,
+        task1Score: 6.5,
+        task2Score: 7,
+        writingScore: 7,
+        taskStates: { task1: 'complete', task2: 'complete' },
+        tasks: [
+          {
+            taskNumber: 1,
+            taskScore: 6.5,
+            wordCount: countWords(state.drafts.writing.task1),
+            criteria: ['TA', 'CC', 'LR', 'GRA'].map((code, index) => ({
+              code,
+              name: criterionTitle(code, 1),
+              bandScore: index === 1 || index === 3 ? 7 : 6.5,
+              feedback: `Nhận xét minh họa cho tiêu chí ${criterionTitle(code, 1)}.`,
+              components: [{
+                code: `${code.toLowerCase()}_demo`,
+                label: 'Nhận xét theo khía cạnh',
+                summary: 'Điểm chính trong bài làm.',
+                feedback: 'Gợi ý cụ thể để cải thiện ở lần viết tiếp theo.'
+              }]
+            }))
+          },
+          {
+            taskNumber: 2,
+            taskScore: 7,
+            wordCount: countWords(state.drafts.writing.task2),
+            criteria: ['TR', 'CC', 'LR', 'GRA'].map(code => ({
+              code,
+              name: criterionTitle(code, 2),
+              bandScore: 7,
+              feedback: `Nhận xét minh họa cho tiêu chí ${criterionTitle(code, 2)}.`,
+              components: [{
+                code: `${code.toLowerCase()}_demo`,
+                label: 'Nhận xét theo khía cạnh',
+                summary: 'Điểm chính trong bài làm.',
+                feedback: 'Gợi ý cụ thể để cải thiện ở lần viết tiếp theo.'
+              }]
+            }))
+          }
+        ]
+      }
+    } : undefined;
     return {
       studentName: 'Học viên demo',
       className: 'IC-DEMO',
       completed: Boolean(reading),
       portalSyncStatus: 'synced',
+      writing: demoWriting,
       result: {
         testTitle: 'Term Test 2 · Bản minh họa',
         listening,
