@@ -252,8 +252,15 @@
   ].filter(Boolean);
 
   function showNotice(message, kind = '') {
+    elements.notice.hidden = false;
     elements.notice.textContent = message;
     elements.notice.className = `notice${kind ? ` ${kind}` : ''}`;
+  }
+
+  function hideNotice() {
+    elements.notice.hidden = true;
+    elements.notice.textContent = '';
+    elements.notice.className = 'notice';
   }
 
   function setStage(stage) {
@@ -1329,7 +1336,7 @@
         showNotice('Bài Listening đã được lưu. Bạn có thể tiếp tục Reading.', 'success');
       } else {
         setStage('listening');
-        showNotice(`Đã tải ${state.roster.length} học viên lớp ${state.className}.`, 'success');
+        hideNotice();
       }
     } catch (error) {
       elements.loadingView.hidden = true;
