@@ -13,8 +13,8 @@
   const submissionStorageKey = 'izone-test:' + testConfig.slug + ':' + classCode;
   const uiState = readUiState();
 
-  // Dữ liệu vào: phần đang mở, câu đánh dấu, cỡ chữ, vị trí audio và hạn giờ Reading trên máy hiện tại.
-  // Việc chính: đọc an toàn rồi bổ sung giá trị mặc định cho Listening và Reading.
+  // Dữ liệu vào: phần đang mở, câu đánh dấu, cỡ chữ, vị trí audio và hạn giờ Reading/Writing trên máy hiện tại.
+  // Việc chính: đọc an toàn rồi bổ sung giá trị mặc định cho Listening, Reading và Writing.
   // Kết quả: tải lại trang vẫn trở về đúng ngữ cảnh học viên đang làm.
   // Khi lỗi: dùng cấu hình mặc định; luồng lưu bài của shared/app.js không bị ảnh hưởng.
   function readUiState() {
@@ -48,6 +48,10 @@
       readingTimer: {
         deadline: Number(stored.readingTimer?.deadline) || 0,
         attemptToken: String(stored.readingTimer?.attemptToken || '')
+      },
+      writingTimer: {
+        deadline: Number(stored.writingTimer?.deadline) || 0,
+        attemptToken: String(stored.writingTimer?.attemptToken || '')
       }
     };
   }
@@ -1154,6 +1158,114 @@
     startTimer();
   }
 
+  // Dữ liệu vào: form Writing, attempt token đã chốt sau Reading và hạn giờ lưu trong bộ nhớ trình duyệt.
+  // Việc chính: chạy 60 phút từ lúc Writing mở, cảnh báo 10 phút cuối và gọi đúng luồng nộp Writing khi hết giờ.
+  // Kết quả: bản mới nhất được gửi lên database, sau đó hệ thống tự mở kết quả Listening và Reading.
+  // Khi lỗi mạng: bài vẫn được giữ trên máy/database và hệ thống thử tự nộp lại mỗi 15 giây.
+  function setupWritingTimer() {
+    const form = document.getElementById('writingView');
+    const header = form?.querySelector('.writing-exam-header');
+    if (!form || !header) return;
+
+    const durationMs = 60 * 60 * 1000;
+    const retryDelayMs = 15 * 1000;
+    const clock = document.createElement('div');
+    clock.className = 'cbt-reading-clock cbt-writing-clock';
+    clock.setAttribute('role', 'timer');
+    clock.setAttribute('aria-live', 'polite');
+    clock.setAttribute('aria-label', 'Thời gian còn lại của bài Writing');
+    const clockLabel = document.createElement('span');
+    clockLabel.textContent = 'Còn';
+    const clockValue = document.createElement('strong');
+    clockValue.textContent = '60';
+    const clockTotal = document.createElement('span');
+    clockTotal.textContent = '/ 60 phút';
+    clock.append(clockLabel, clockValue, clockTotal);
+    header.insertBefore(clock, document.getElementById('submitWriting'));
+
+    const autoSubmitButton = makeButton('cbt-writing-auto-submit', 'Tự nộp bài Writing');
+    autoSubmitButton.type = 'submit';
+    autoSubmitButton.hidden = true;
+    autoSubmitButton.dataset.autoSubmit = 'true';
+    autoSubmitButton.tabIndex = -1;
+    form.append(autoSubmitButton);
+
+    let intervalId = 0;
+    let lastRenderedMinute = null;
+    let lastAutoSubmitAttempt = 0;
+
+    function readAttemptToken() {
+      for (const storage of [sessionStorage, localStorage]) {
+        try {
+          const token = String(JSON.parse(storage.getItem(submissionStorageKey) || '{}').attemptToken || '');
+          if (token) return token;
+        } catch {
+          // Tiếp tục kiểm tra nguồn bộ nhớ còn lại.
+        }
+      }
+      return '';
+    }
+
+    function stopTimer() {
+      if (intervalId) window.clearInterval(intervalId);
+      intervalId = 0;
+    }
+
+    function submitExpiredWriting(now) {
+      if (form.hidden || form.dataset.writingSubmitting === 'true') return;
+      if (now - lastAutoSubmitAttempt < retryDelayMs) return;
+      lastAutoSubmitAttempt = now;
+      form.dataset.writingTimeExpired = 'true';
+      form.requestSubmit(autoSubmitButton);
+    }
+
+    function renderTimer() {
+      if (form.hidden || !uiState.writingTimer.deadline) return;
+      const now = Date.now();
+      const remainingMs = Math.max(0, uiState.writingTimer.deadline - now);
+      const minutes = Math.ceil(remainingMs / 60_000);
+      if (minutes !== lastRenderedMinute) {
+        lastRenderedMinute = minutes;
+        clockValue.textContent = String(minutes);
+        clock.dataset.minutes = String(minutes);
+        clock.classList.toggle('is-warning', minutes <= 10 && minutes > 0);
+        clock.classList.toggle('is-expired', minutes === 0);
+        clock.setAttribute('aria-label', minutes > 0
+          ? 'Còn ' + minutes + ' trên 60 phút làm bài Writing'
+          : 'Đã hết 60 phút làm bài Writing; hệ thống đang tự nộp bài');
+      }
+      if (remainingMs === 0) submitExpiredWriting(now);
+    }
+
+    function startTimer() {
+      if (form.hidden || intervalId) return;
+      const attemptToken = readAttemptToken();
+      if (!attemptToken) return;
+      if (uiState.writingTimer.attemptToken !== attemptToken) {
+        uiState.writingTimer.deadline = 0;
+        uiState.writingTimer.attemptToken = attemptToken;
+      }
+      if (!uiState.writingTimer.deadline) {
+        uiState.writingTimer.deadline = Date.now() + durationMs;
+        saveUiState();
+      }
+      renderTimer();
+      intervalId = window.setInterval(renderTimer, 1000);
+    }
+
+    const visibilityObserver = new MutationObserver(() => {
+      if (form.hidden) stopTimer();
+      else startTimer();
+    });
+    visibilityObserver.observe(form, { attributes: true, attributeFilter: ['hidden'] });
+    form.addEventListener('term-test:writing-submitted', stopTimer);
+    window.addEventListener('pagehide', () => {
+      stopTimer();
+      visibilityObserver.disconnect();
+    });
+    startTimer();
+  }
+
   document.body.classList.add('cbt-mode', 'cbt-semantic-mode');
   compactIdentityPanel();
   const topbarTitle = document.querySelector('.topbar h1');
@@ -1176,6 +1288,7 @@
   if (!isDemo) {
     setupBufferedAudio(listeningForm);
     setupReadingTimer(readingForm);
+    setupWritingTimer();
   }
   window.addEventListener('pagehide', saveUiState);
 }());

@@ -201,7 +201,8 @@
   color: #c12d23;
 }
 
-.cbt-reading-auto-submit[hidden] {
+.cbt-reading-auto-submit[hidden],
+.cbt-writing-auto-submit[hidden] {
   display: none !important;
 }
 
@@ -1440,7 +1441,7 @@
 
 .writing-exam-header {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto auto;
+  grid-template-columns: minmax(240px, 1fr) auto auto auto;
   gap: 16px;
   align-items: center;
   padding: 11px 14px;
@@ -1809,12 +1810,17 @@
   }
 
   .writing-exam-header {
-    grid-template-columns: minmax(200px, 1fr) auto;
+    grid-template-columns: minmax(200px, 1fr) auto auto;
     gap: 8px 12px;
   }
 
-  .writing-submit {
+  .cbt-writing-clock {
     grid-column: 2;
+    grid-row: 1;
+  }
+
+  .writing-submit {
+    grid-column: 3;
     grid-row: 1;
   }
 
@@ -1892,6 +1898,16 @@
   .writing-exam-header {
     grid-template-columns: minmax(0, 1fr) auto;
     padding: 9px 10px;
+  }
+
+  .cbt-writing-clock {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .writing-submit {
+    grid-column: 1 / -1;
+    grid-row: 3;
   }
 
   .writing-exam-header h2 {
