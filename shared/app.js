@@ -844,26 +844,6 @@
     });
   }
 
-  async function copyWritingText(value) {
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(value);
-        return;
-      } catch {
-        // Một số trình duyệt chặn Clipboard API; dùng ô tạm trong cùng thao tác bấm nút.
-      }
-    }
-    const fallback = document.createElement('textarea');
-    fallback.value = value;
-    fallback.style.position = 'fixed';
-    fallback.style.opacity = '0';
-    document.body.append(fallback);
-    fallback.select();
-    const copied = document.execCommand('copy');
-    fallback.remove();
-    if (!copied) throw new Error('COPY_FAILED');
-  }
-
   function formatBand(value) {
     const band = Number(value);
     return Number.isFinite(band) ? String(band) : '—';
@@ -879,10 +859,20 @@
     }[code] || `${taskNumber === 1 ? 'Task 1' : 'Task 2'} · ${code}`;
   }
 
+  function cleanWritingFeedback(value) {
+    return String(value || '')
+      .replace(/\r/g, '')
+      .replace(/^.*\]\(https:\/\/(?:docs|drive)\.google\.com\/[^)]+\).*$/gim, '')
+      .replace(/https:\/\/(?:docs|drive)\.google\.com\/\S+/gi, '')
+      .replace(/^\s*\(?\s*Xem phân tích chi tiết[^\n]*\)?\s*$/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   function appendSafeWritingFeedback(target, value) {
     const appendInline = (parent, source) => {
       const text = String(source || '');
-      const tokenPattern = /\*\*([^*]+)\*\*|\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g;
+      const tokenPattern = /\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g;
       let cursor = 0;
       for (const match of text.matchAll(tokenPattern)) {
         if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
@@ -890,13 +880,17 @@
           const strong = document.createElement('strong');
           strong.textContent = match[1];
           parent.append(strong);
+        } else if (match[2]) {
+          const emphasis = document.createElement('em');
+          emphasis.textContent = match[2];
+          parent.append(emphasis);
         } else {
           const link = document.createElement('a');
-          link.href = match[3];
+          link.href = match[4];
           link.target = '_blank';
           link.rel = 'noopener noreferrer';
           link.referrerPolicy = 'no-referrer';
-          link.textContent = match[2];
+          link.textContent = match[3];
           parent.append(link);
         }
         cursor = match.index + match[0].length;
@@ -904,13 +898,18 @@
       if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
     };
 
-    const normalized = String(value || 'Chưa có nhận xét tổng hợp.')
-      .replace(/\r/g, '')
+    const normalized = cleanWritingFeedback(value || 'Chưa có nhận xét tổng hợp.')
       .replace(/[ \t]+(?=#{2,4}\s+\*\*)/g, '\n');
-    for (const rawLine of normalized.split(/\n+/)) {
+    const lines = normalized.split('\n');
+    let index = 0;
+    while (index < lines.length) {
+      const rawLine = lines[index];
       const line = rawLine.trim();
-      if (!line) continue;
-      const heading = line.match(/^(#{2,4})\s+(?:\*\*([^*]+)\*\*|([^#]+?))(?:\s+([\s\S]*))?$/);
+      if (!line) {
+        index += 1;
+        continue;
+      }
+      const heading = line.match(/^(#{1,5})\s+(?:\*\*([^*]+)\*\*|([^#]+?))(?:\s+([\s\S]*))?$/);
       if (heading) {
         const title = document.createElement('h5');
         title.textContent = String(heading[2] || heading[3] || '').trim();
@@ -920,12 +919,116 @@
           appendInline(paragraph, heading[4]);
           target.append(paragraph);
         }
+        index += 1;
         continue;
       }
+
+      const listItem = line.match(/^(?:([-*])|(\d+)\.)\s+(.+)$/);
+      if (listItem) {
+        const ordered = Boolean(listItem[2]);
+        const list = document.createElement(ordered ? 'ol' : 'ul');
+        while (index < lines.length) {
+          const candidate = lines[index].trim().match(/^(?:([-*])|(\d+)\.)\s+(.+)$/);
+          if (!candidate || Boolean(candidate[2]) !== ordered) break;
+          const item = document.createElement('li');
+          appendInline(item, candidate[3]);
+          list.append(item);
+          index += 1;
+        }
+        target.append(list);
+        continue;
+      }
+
+      const paragraphLines = [line];
+      index += 1;
+      while (index < lines.length) {
+        const candidate = lines[index].trim();
+        if (!candidate) break;
+        if (/^#{1,5}\s+/.test(candidate) || /^(?:[-*]|\d+\.)\s+/.test(candidate)) break;
+        paragraphLines.push(candidate);
+        index += 1;
+      }
       const paragraph = document.createElement('p');
-      appendInline(paragraph, line);
+      appendInline(paragraph, paragraphLines.join(' '));
       target.append(paragraph);
     }
+  }
+
+  function writingCriterionSections(value) {
+    const text = cleanWritingFeedback(value);
+    if (!text) return [];
+    const sections = [];
+    let current = null;
+    for (const rawLine of text.split('\n')) {
+      const line = rawLine.trim();
+      const heading = line.match(/^#{2,5}\s+(?:\*\*)?(.+?)(?:\*\*)?\s*$/);
+      const title = String(heading?.[1] || '').replace(/\*\*/g, '').trim();
+      if (heading && /^\d+\.\s+/.test(title)) {
+        if (current) sections.push({ title: current.title, body: current.body.join('\n').trim() });
+        current = { title, body: [] };
+        continue;
+      }
+      if (heading && /KẾT LUẬN/i.test(title)) {
+        if (current) sections.push({ title: current.title, body: current.body.join('\n').trim() });
+        current = null;
+        break;
+      }
+      if (current) current.body.push(rawLine);
+    }
+    if (current) sections.push({ title: current.title, body: current.body.join('\n').trim() });
+    return sections;
+  }
+
+  function writingCriterionFallbackSummary(value) {
+    const cleaned = cleanWritingFeedback(value);
+    const beforeConclusion = cleaned.split(/^#{2,5}\s+(?:\*\*)?KẾT LUẬN/im)[0];
+    return beforeConclusion
+      .replace(/^#{1,5}\s+.*$/gm, '')
+      .replace(/^\s*\*\*[^\n]*Band[^\n]*\*\*\s*$/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function appendWritingComponent(parent, component, section, index, criterionCode, taskNumber) {
+    const aspect = document.createElement('section');
+    aspect.className = 'writing-component';
+    const title = document.createElement('h5');
+    title.textContent = section?.title || `${index + 1}. ${component?.label || component?.code || 'Khía cạnh'}`;
+    aspect.append(title);
+
+    const summaryValue = cleanWritingFeedback(component?.summary || section?.body || '');
+    if (summaryValue) {
+      const summary = document.createElement('div');
+      summary.className = 'writing-component-summary writing-feedback-richtext';
+      appendSafeWritingFeedback(summary, summaryValue);
+      aspect.append(summary);
+    }
+
+    const detailValue = cleanWritingFeedback(component?.feedback || '');
+    if (detailValue) {
+      const detailId = `writingDetail${taskNumber}${criterionCode}${index}`;
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'writing-component-toggle';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-controls', detailId);
+      toggle.textContent = 'Xem phân tích chi tiết và cách cải thiện';
+      const detail = document.createElement('div');
+      detail.id = detailId;
+      detail.className = 'writing-component-detail writing-feedback-richtext';
+      detail.hidden = true;
+      appendSafeWritingFeedback(detail, detailValue);
+      toggle.addEventListener('click', () => {
+        const willOpen = detail.hidden;
+        detail.hidden = !willOpen;
+        toggle.setAttribute('aria-expanded', String(willOpen));
+        toggle.textContent = willOpen
+          ? 'Thu gọn phân tích chi tiết'
+          : 'Xem phân tích chi tiết và cách cải thiện';
+      });
+      aspect.append(toggle, detail);
+    }
+    parent.append(aspect);
   }
 
   function openWritingFeedback(taskResult) {
@@ -1004,29 +1107,22 @@
       const criterionScore = document.createElement('strong');
       criterionScore.textContent = `Band ${formatBand(criterion.bandScore)}`;
       criterionHeader.append(criterionName, criterionScore);
-      const feedback = document.createElement('div');
-      feedback.className = 'writing-feedback-text writing-feedback-richtext';
-      appendSafeWritingFeedback(feedback, criterion.feedback);
-      card.append(criterionHeader, feedback);
-
+      card.append(criterionHeader);
       const components = Array.from(criterion.components || []);
-      if (components.length) {
+      const sections = writingCriterionSections(criterion.feedback);
+      const componentCount = Math.max(components.length, sections.length);
+      if (componentCount) {
         const componentList = document.createElement('div');
         componentList.className = 'writing-component-list';
-        for (const component of components) {
-          const details = document.createElement('details');
-          const summary = document.createElement('summary');
-          summary.textContent = component.label || component.code;
-          const componentText = document.createElement('div');
-          componentText.className = 'writing-component-feedback writing-feedback-richtext';
-          appendSafeWritingFeedback(
-            componentText,
-            [component.summary, component.feedback].filter(Boolean).join('\n\n') || 'Chưa có nhận xét chi tiết.'
-          );
-          details.append(summary, componentText);
-          componentList.append(details);
+        for (let index = 0; index < componentCount; index += 1) {
+          appendWritingComponent(componentList, components[index], sections[index], index, criterion.code, taskNumber);
         }
         card.append(componentList);
+      } else {
+        const feedback = document.createElement('div');
+        feedback.className = 'writing-feedback-text writing-feedback-richtext';
+        appendSafeWritingFeedback(feedback, writingCriterionFallbackSummary(criterion.feedback));
+        card.append(feedback);
       }
       scorePane.append(card);
     }
@@ -1125,42 +1221,7 @@
       gradingArea.append(statusCopy, refresh);
     }
 
-    const cards = document.createElement('div');
-    cards.className = 'writing-result-grid';
-    for (const task of Array.from(writingConfig.tasks || [])) {
-      const value = state.drafts.writing[task.id] || '';
-      const card = document.createElement('article');
-      card.className = 'writing-result-card';
-      const cardHeader = document.createElement('header');
-      const cardTitle = document.createElement('div');
-      const label = document.createElement('h4');
-      label.textContent = task.label;
-      const words = document.createElement('span');
-      words.textContent = `${countWords(value)} từ`;
-      cardTitle.append(label, words);
-      const copyButton = document.createElement('button');
-      copyButton.type = 'button';
-      copyButton.className = 'button button-secondary writing-copy-button';
-      copyButton.textContent = `Sao chép ${task.label}`;
-      copyButton.addEventListener('click', async () => {
-        const normalText = copyButton.textContent;
-        try {
-          await copyWritingText(value);
-          copyButton.textContent = 'Đã sao chép ✓';
-          window.setTimeout(() => { copyButton.textContent = normalText; }, 1800);
-        } catch {
-          copyButton.textContent = 'Không sao chép được';
-          window.setTimeout(() => { copyButton.textContent = normalText; }, 2200);
-        }
-      });
-      cardHeader.append(cardTitle, copyButton);
-      const essay = document.createElement('div');
-      essay.className = 'writing-result-text';
-      essay.textContent = value || 'Học viên không nhập nội dung.';
-      card.append(cardHeader, essay);
-      cards.append(card);
-    }
-    section.append(heading, gradingArea, cards);
+    section.append(heading, gradingArea);
     elements.writingSubmissionResult.replaceChildren(section);
   }
 

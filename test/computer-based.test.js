@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /cbt-v24/);
+  assert.match(html, /cbt-v25/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -112,7 +112,7 @@ test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia �
   assert.doesNotMatch(styles, /\.writing-divider/);
 });
 
-test('kết quả Writing chỉ mở khi đủ hai Task, định dạng an toàn và không có phân tích câu', async () => {
+test('kết quả Writing chỉ mở khi đủ hai Task và mở phân tích chi tiết ngay trên web', async () => {
   const source = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
   const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
   assert.match(source, /grading\?\.ready/);
@@ -120,9 +120,19 @@ test('kết quả Writing chỉ mở khi đủ hai Task, định dạng an toàn
   assert.match(source, /openWritingFeedback/);
   assert.match(source, /Nhận xét theo tiêu chí/);
   assert.match(source, /appendSafeWritingFeedback/);
+  assert.match(source, /Xem phân tích chi tiết và cách cải thiện/);
+  assert.match(source, /Thu gọn phân tích chi tiết/);
+  assert.match(source, /writingCriterionSections/);
+  assert.match(source, /writing-component-detail/);
+  assert.match(source, /\(\?:docs\|drive\)\\\.google/);
   assert.match(source, /noopener noreferrer/);
   assert.doesNotMatch(source, /feedback\.innerHTML/);
   assert.doesNotMatch(source, /Phân tích câu/);
+  assert.doesNotMatch(source, /Sao chép \$\{task\.label\}/);
+  assert.doesNotMatch(source, /writing-result-card/);
   assert.match(styles, /\.writing-feedback-dialog/);
   assert.match(styles, /\.writing-score-grid/);
+  assert.match(styles, /\.writing-component-toggle/);
+  assert.match(styles, /\.writing-component-detail\[hidden\]/);
+  assert.doesNotMatch(styles, /\.writing-copy-button/);
 });
