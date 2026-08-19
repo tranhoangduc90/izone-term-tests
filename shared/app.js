@@ -97,6 +97,7 @@
         <h2>Chuẩn bị phần Writing</h2>
         <p>Kết quả Listening và Reading đang được giữ kín. Khi sẵn sàng, hãy bắt đầu Writing và hoàn thành cả hai Task.</p>
         <ul class="writing-prep-list">
+          <li>Tổng thời gian: 60 phút. Còn 10 phút đồng hồ sẽ chuyển đỏ; hết giờ hệ thống tự thu bài và mở kết quả.</li>
           <li>Task 1: nên dành khoảng 20 phút và viết ít nhất 150 từ.</li>
           <li>Task 2: nên dành khoảng 40 phút và viết ít nhất 250 từ.</li>
           <li>Bài viết được tự lưu trên hệ thống; đóng tab rồi mở lại vẫn có thể tiếp tục.</li>
@@ -1123,7 +1124,7 @@
       setBusy(elements.startWriting, true, 'Đang mở Writing...', 'Bắt đầu Writing');
       try {
         await saveWritingToServer('start');
-        showNotice('Writing đã bắt đầu. Bài viết được tự lưu trên hệ thống.', 'success');
+        showNotice('Writing đã bắt đầu. Bạn có 60 phút; bài viết được tự lưu trên hệ thống.', 'success');
         setStage('writing');
       } catch (error) {
         state.writingStarted = wasStarted;
@@ -1136,12 +1137,14 @@
 
     elements.writingView.addEventListener('submit', async event => {
       event.preventDefault();
+      const automatic = event.submitter?.dataset.autoSubmit === 'true'
+        || elements.writingView.dataset.writingTimeExpired === 'true';
       const belowMinimum = Array.from(writingConfig.tasks || []).map(task => ({
         label: task.label,
         words: countWords(state.drafts.writing[task.id]),
         minimum: task.minimumWords
       })).filter(task => task.words < task.minimum);
-      if (belowMinimum.length) {
+      if (!automatic && belowMinimum.length) {
         const summary = belowMinimum.map(task => `${task.label}: ${task.words}/${task.minimum} từ`).join('\n');
         if (!window.confirm(`${summary}\n\nBạn vẫn muốn nộp bài Writing?`)) return;
       }
@@ -1157,22 +1160,33 @@
 
       window.clearTimeout(writingSaveTimer);
       window.clearTimeout(writingRetryTimer);
+      elements.writingView.dataset.writingSubmitting = 'true';
       setBusy(elements.submitWriting, true, 'Đang lưu và nộp...', 'Nộp bài Writing');
       for (const editor of elements.writingView.querySelectorAll('textarea')) editor.readOnly = true;
+      if (automatic) showNotice('Đã hết 60 phút. Hệ thống đang tự lưu và thu bài Writing...');
       try {
         const saved = await saveWritingToServer('submit');
         if (!saved.writing?.submitted) throw new Error('Máy chủ chưa xác nhận bài Writing đã được nộp.');
         state.writingSubmitted = true;
         state.writingDirty = false;
         saveSession();
+        elements.writingView.dispatchEvent(new CustomEvent('term-test:writing-submitted'));
         setStage('result-ready');
-        showNotice('Đã nộp và lưu Writing. Hệ thống đang mở kết quả Listening và Reading...', 'success');
+        showNotice(automatic
+          ? 'Đã hết giờ và thu bài Writing. Hệ thống đang mở kết quả Listening và Reading...'
+          : 'Đã nộp và lưu Writing. Hệ thống đang mở kết quả Listening và Reading...', 'success');
         await loadResult(elements.viewResult);
       } catch (error) {
-        showNotice(`Không thể nộp Writing: ${error.message}. Bài vẫn được giữ trên máy để bạn thử lại.`, 'error');
-        setWritingSaveStatus('Chưa nộp được · bài vẫn được giữ trên máy');
+        showNotice(automatic
+          ? `Hết giờ nhưng chưa thể nộp Writing: ${error.message}. Bài đã được khóa và hệ thống sẽ tự thử lại; không làm mới trang.`
+          : `Không thể nộp Writing: ${error.message}. Bài vẫn được giữ trên máy để bạn thử lại.`, 'error');
+        setWritingSaveStatus(automatic
+          ? 'Hết giờ · bài đã khóa · hệ thống đang chờ thử nộp lại'
+          : 'Chưa nộp được · bài vẫn được giữ trên máy');
       } finally {
-        for (const editor of elements.writingView.querySelectorAll('textarea')) editor.readOnly = false;
+        delete elements.writingView.dataset.writingSubmitting;
+        const timeExpired = elements.writingView.dataset.writingTimeExpired === 'true';
+        for (const editor of elements.writingView.querySelectorAll('textarea')) editor.readOnly = timeExpired;
         setBusy(elements.submitWriting, false, 'Đang lưu và nộp...', 'Nộp bài Writing');
       }
     });

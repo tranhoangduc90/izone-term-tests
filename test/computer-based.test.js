@@ -95,7 +95,7 @@ test('HTML computer-based giữ đúng thứ tự code cũ rồi mới tăng cư
   assert.ok(audioLoaderIndex < enhanceIndex);
   assert.match(html, /media-src 'self' blob:/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /cbt-v16/);
+  assert.match(html, /cbt-v17/);
 });
 
 test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đổi API hoặc nhúng đáp án', async () => {
@@ -137,6 +137,12 @@ test('mã tăng cường chỉ nối giao diện HTML với field cũ, không đ
   assert.match(source, /Math\.ceil\(remainingMs \/ 60_000\)/);
   assert.match(source, /minutes <= 10 && minutes > 0/);
   assert.match(source, /requestSubmit\(autoSubmitButton\)/);
+  assert.match(source, /setupWritingTimer/);
+  assert.match(source, /writingTimer\.deadline/);
+  assert.match(source, /writingTimer\.attemptToken/);
+  assert.match(source, /cbt-writing-clock/);
+  assert.match(source, /writingTimeExpired/);
+  assert.match(source, /term-test:writing-submitted/);
 
   const startHandlerIndex = source.indexOf("startButton.addEventListener('click'");
   const restoreStudentIndex = source.indexOf('restoreStudentSelection()', startHandlerIndex);
@@ -165,6 +171,12 @@ test('app chung hỗ trợ kết quả Listening độc lập và hai bản demo
   assert.match(source, /readingSubmitting/);
   assert.match(source, /!automatic && !confirmIncomplete/);
   assert.match(source, /term-test:reading-submitted/);
+  assert.match(source, /event\.submitter\?\.dataset\.autoSubmit/);
+  assert.match(source, /writingTimeExpired/);
+  assert.match(source, /!automatic && belowMinimum\.length/);
+  assert.match(source, /term-test:writing-submitted/);
+  assert.match(source, /editor\.readOnly = timeExpired/);
+  assert.match(source, /Còn 10 phút đồng hồ sẽ chuyển đỏ/);
   assert.match(source, /setStage\('writing-prep'\)/);
   assert.match(source, /writingStarted/);
   assert.match(source, /writingSubmitted/);
