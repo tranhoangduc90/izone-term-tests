@@ -103,13 +103,16 @@ test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia �
   assert.doesNotMatch(styles, /\.writing-divider/);
 });
 
-test('kết quả Writing chỉ mở khi đủ hai Task và popup không có phân tích câu', async () => {
+test('kết quả Writing chỉ mở khi đủ hai Task, định dạng an toàn và không có phân tích câu', async () => {
   const source = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
   const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
   assert.match(source, /grading\?\.ready/);
   assert.match(source, /Điểm chỉ được mở khi cả Task 1 và Task 2 đã chấm hoàn chỉnh/);
   assert.match(source, /openWritingFeedback/);
   assert.match(source, /Nhận xét theo tiêu chí/);
+  assert.match(source, /appendSafeWritingFeedback/);
+  assert.match(source, /noopener noreferrer/);
+  assert.doesNotMatch(source, /feedback\.innerHTML/);
   assert.doesNotMatch(source, /Phân tích câu/);
   assert.match(styles, /\.writing-feedback-dialog/);
   assert.match(styles, /\.writing-score-grid/);
