@@ -331,7 +331,7 @@
     });
     previewAudio.remove();
     revokePreview();
-    await loadScript('../shared/app.js?rev=20260820-cbt-v26');
+    await loadScript('../shared/app.js?rev=20260820-cbt-v27');
     await loadScript('enhance.js?rev=20260820-cbt-v25');
   }
 
