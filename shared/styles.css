@@ -79,7 +79,7 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .result-panel { padding: 22px; }
 .result-heading { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
 .result-heading p { margin: 0; color: var(--muted); }
-.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+.summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0; }
 .summary-card { padding: 17px; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 13px; }
 .summary-card span { display: block; color: var(--muted); font-size: 12px; }
 .summary-card strong { display: block; margin-top: 7px; color: var(--navy); font-size: 27px; letter-spacing: -.03em; }

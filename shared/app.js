@@ -671,16 +671,6 @@
     return card;
   }
 
-  function getAverageBand(result) {
-    if (typeof result.summary?.averageBand === 'number' && Number.isFinite(result.summary.averageBand)) {
-      return result.summary.averageBand;
-    }
-    const bands = [result.listening?.band, result.reading?.band];
-    return bands.every(band => typeof band === 'number' && Number.isFinite(band))
-      ? (bands[0] + bands[1]) / 2
-      : null;
-  }
-
   function renderAnalysisList(container, items, emptyText) {
     const rows = items?.length ? items : [{ type: emptyText, correct: 0, total: 0, percentage: 0 }];
     container.replaceChildren(...rows.map(item => {
@@ -835,11 +825,9 @@
     state.result = payload;
     elements.resultStudentName.textContent = payload.studentName;
     elements.resultMeta.textContent = `${payload.className} · ${result.testTitle || testConfig.title}`;
-    const averageBand = getAverageBand(result);
     elements.summaryGrid.replaceChildren(
       addSummaryCard('Listening', `${result.listening.correct}/${result.listening.total} · Band ${result.listening.band}`),
-      addSummaryCard('Reading', hasReading ? `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}` : 'Chưa nộp'),
-      addSummaryCard('Tổng điểm', averageBand === null ? 'Chưa đủ hai kỹ năng' : `Band ${averageBand.toFixed(2)}`)
+      addSummaryCard('Reading', hasReading ? `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}` : 'Chưa nộp')
     );
     elements.resultStatus.textContent = hasReading
       ? 'Bạn đã hoàn thành cả Listening và Reading. Kết quả và phân tích được tách riêng theo từng kỹ năng ở bên dưới.'
