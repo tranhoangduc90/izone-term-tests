@@ -12,7 +12,7 @@ import {
   summarizeStudents,
   writingStatusLabel,
   writingTaskStateLabel
-} from './model.js';
+} from './model.js?rev=20260820-writing-monitor-v1';
 
 const appConfig = window.TERM_TEST_APP_CONFIG || {};
 const initialParams = new URLSearchParams(window.location.search);
