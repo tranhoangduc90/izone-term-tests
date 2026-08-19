@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /cbt-v21/);
+  assert.match(html, /cbt-v22/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -101,4 +101,16 @@ test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia �
   assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.writing-split\s*{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(styles, /@media \(max-width: 620px\)[\s\S]*\.writing-separator\s*{\s*display: none;/);
   assert.doesNotMatch(styles, /\.writing-divider/);
+});
+
+test('kết quả Writing chỉ mở khi đủ hai Task và popup không có phân tích câu', async () => {
+  const source = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
+  assert.match(source, /grading\?\.ready/);
+  assert.match(source, /Điểm chỉ được mở khi cả Task 1 và Task 2 đã chấm hoàn chỉnh/);
+  assert.match(source, /openWritingFeedback/);
+  assert.match(source, /Nhận xét theo tiêu chí/);
+  assert.doesNotMatch(source, /Phân tích câu/);
+  assert.match(styles, /\.writing-feedback-dialog/);
+  assert.match(styles, /\.writing-score-grid/);
 });
