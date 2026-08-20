@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /cbt-v25/);
+  assert.match(html, /bootstrap\.js\?rev=20260820-cbt-v28/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -100,6 +100,8 @@ test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Read
   assert.match(source, /audioVolume: state\.audioVolume/);
   assert.match(source, /await loadResult\(elements\.viewResult\)/);
   assert.doesNotMatch(source, /addSummaryCard\('Tổng điểm'/);
+  assert.match(source, /const showConfirmedIdentity = document\.body\.classList\.contains\('cbt-mode'\)/);
+  assert.match(source, /if \(showConfirmedIdentity\) elements\.identityView\.hidden = false/);
 });
 
 test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia ở desktop', async () => {

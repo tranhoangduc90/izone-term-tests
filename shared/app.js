@@ -285,6 +285,10 @@
     state.stage = stage;
     if (stage !== 'result') stopWritingGradingPolling();
     for (const view of views) view.hidden = true;
+    const showConfirmedIdentity = document.body.classList.contains('cbt-mode')
+      && Boolean(state.studentRef)
+      && stage !== 'loading';
+    if (showConfirmedIdentity) elements.identityView.hidden = false;
     const activeProgress = stage === 'listening' || stage === 'listening-saved'
       ? 'listening'
       : stage === 'reading' ? 'reading'
@@ -307,7 +311,6 @@
 
     if (stage === 'loading') elements.loadingView.hidden = false;
     if (stage === 'listening') {
-      elements.identityView.hidden = false;
       elements.listeningView.hidden = false;
     }
     if (stage === 'listening-saved') elements.listeningSavedView.hidden = false;
