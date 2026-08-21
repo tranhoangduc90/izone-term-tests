@@ -487,7 +487,13 @@
         await prepareSelectedStudent();
         return;
       }
-      if (state.studentRef && roster.some(student => student.ref === state.studentRef)) {
+      // Lớp demo luôn quay về danh sách chọn tên khi mở đường dẫn chung.
+      // Người kiểm thử vẫn có thể chọn lại đúng tên cũ để tiếp tục phiên đang dở;
+      // các liên kết kết quả có demoStudent + demoAttempt vẫn mở thẳng như trước.
+      const shouldRestoreSelectedStudent = classCode !== 'CODEXDEMO806'
+        && state.studentRef
+        && roster.some(student => student.ref === state.studentRef);
+      if (shouldRestoreSelectedStudent) {
         elements.bootstrapStudent.value = state.studentRef;
         await prepareSelectedStudent();
       } else {

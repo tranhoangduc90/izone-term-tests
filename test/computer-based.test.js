@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260821-writing-html-v1/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-demo-roster-v1/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -51,6 +51,14 @@ test('liên kết xem kết quả demo chỉ hoạt động trong lớp giả l�
   assert.match(source, /query\.get\('demoAttempt'\)/);
   assert.match(source, /!demoStudent \|\| !isUuid\(demoStudentRef\) \|\| !isUuid\(demoAttemptToken\)/);
   assert.match(source, /await prepareSelectedStudent\(\)/);
+});
+
+test('đường dẫn chung của lớp demo luôn hiện danh sách chọn học viên', async () => {
+  const source = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  assert.match(source, /const shouldRestoreSelectedStudent = classCode !== 'CODEXDEMO806'/);
+  assert.match(source, /if \(shouldRestoreSelectedStudent\)/);
+  assert.match(source, /state\.studentRef/);
+  assert.match(source, /roster\.some\(student => student\.ref === state\.studentRef\)/);
 });
 
 test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline máy chủ cho ba kỹ năng', async () => {
