@@ -47,10 +47,15 @@ test('Band trung bình có fallback và trạng thái dùng nhãn tiếng Việt
 test('dashboard đổi phiên bản cả CSS, app và model để không dùng cache cũ', async () => {
   const html = await readFile(new URL('../teacher/index.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
-  assert.match(html, /styles\.css\?rev=20260820-writing-monitor-v1/);
-  assert.match(html, /app\.js\?rev=20260820-writing-monitor-v2/);
+  assert.match(html, /styles\.css\?rev=20260821-writing-detail-v1/);
+  assert.match(html, /app\.js\?rev=20260821-writing-detail-v1/);
   assert.match(app, /model\.js\?rev=20260820-writing-monitor-v1/);
   assert.match(app, /window\.setInterval/);
   assert.match(app, /loadResults\(\{ quiet: true \}\)/);
   assert.match(app, /30_000/);
+  assert.match(app, /\/api\/term-tests\/teacher\/writing-detail/);
+  assert.match(app, /data-writing-student/);
+  assert.match(app, /openTeacherWritingFeedback/);
+  assert.doesNotMatch(app, /\.innerHTML\s*=/);
+  assert.match(html, /img-src[^;]*https:\/\/ducizone\.ddns\.net/);
 });
