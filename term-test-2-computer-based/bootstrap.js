@@ -175,6 +175,12 @@
     elements.bootstrapNotice.textContent = message;
   }
 
+  function hideNotice() {
+    elements.bootstrapNotice.hidden = true;
+    elements.bootstrapNotice.className = 'notice';
+    elements.bootstrapNotice.textContent = '';
+  }
+
   async function apiRequest(path, options = {}, timeoutMs = 30_000) {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -211,6 +217,7 @@
   }
 
   async function downloadForSession(session) {
+    hideNotice();
     downloadController?.abort();
     downloadController = new AbortController();
     encryptedAudio = null;
@@ -537,6 +544,7 @@
     elements.bootstrapDownloadStatus.textContent = 'Đang tải danh sách lớp...';
     elements.bootstrapRetry.hidden = true;
     elements.bootstrapDemoReset.hidden = true;
+    hideNotice();
     try {
       const data = await apiRequest(`/api/term-tests/roster?class=${encodeURIComponent(classCode)}&test=${encodeURIComponent(testConfig.slug)}`, {}, 12_000);
       roster = data.students || [];

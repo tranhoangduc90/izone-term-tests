@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260821-demo-reset-retry-v1/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-demo-reset-retry-v2/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -73,6 +73,7 @@ test('phòng chờ báo lỗi kết nối tại đúng bước và cho tải l�
   assert.match(source, /Thử tải danh sách lại/);
   assert.match(source, /if \(!roster\.length\) initialize\(\)/);
   assert.match(source, /bootstrapDownloadStep\.dataset\.state = 'error'/);
+  assert.match(source, /function hideNotice\(\)/);
 });
 
 test('reset dữ liệu chỉ xuất hiện cho lớp demo và xóa cả trạng thái cục bộ', async () => {
