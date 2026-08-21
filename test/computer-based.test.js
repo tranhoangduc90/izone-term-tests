@@ -91,6 +91,14 @@ test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline m�
   assert.match(source, /Kết quả đang được giữ kín/);
 });
 
+test('tiêu đề Listening và Reading không chiếm chỗ cho các dòng hướng dẫn nhỏ', async () => {
+  const html = await readFile(new URL('index.html', routeUrl), 'utf8');
+  const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
+  assert.match(html, /styles\.css\?rev=20260821-hide-test-instructions-v1/);
+  assert.match(styles, /\.cbt-test-heading \.instructions\s*\{\s*display: none;/);
+  assert.match(styles, /\.cbt-test-heading h2\s*\{[^}]*font-size: 18px;/s);
+});
+
 test('công cụ tô sáng, ghi chú và rà soát tách khỏi logic đáp án', async () => {
   const bootstrap = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
   const source = await readFile(new URL('interaction-tools.js', routeUrl), 'utf8');

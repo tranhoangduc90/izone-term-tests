@@ -643,13 +643,7 @@ button.writing-score-card:focus-visible {
 }
 
 .cbt-test-heading .instructions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px 24px;
-  margin: 4px 0 0;
-  padding-left: 18px;
-  font-size: 11px;
-  line-height: 1.35;
+  display: none;
 }
 
 .cbt-test-heading .answer-count {
