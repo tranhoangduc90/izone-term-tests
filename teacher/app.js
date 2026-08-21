@@ -274,6 +274,12 @@ function cleanWritingFeedback(value) {
     .trim();
 }
 
+function writingReportSummary(value) {
+  return cleanWritingFeedback(value)
+    .split(/\s*---\s*#{1,5}\s+\*{0,2}Nhận xét từng tiêu chí/iu)[0]
+    .trim();
+}
+
 function looksLikeWritingHtml(value) {
   return /<\/?[a-z][a-z0-9-]*(?:\s[^>]*)?>/i.test(String(value || ''));
 }
@@ -482,10 +488,11 @@ function openTeacherWritingFeedback(studentName, writing) {
     image.referrerPolicy = 'no-referrer';
     sourcePane.append(image);
   }
-  if (cleanWritingFeedback(writing.report)) {
+  const reportSummary = writingReportSummary(writing.report);
+  if (reportSummary) {
     sourcePane.append(createNode('h3', '', 'Nhận xét tổng hợp'));
     const report = createNode('div', 'writing-feedback-text writing-feedback-richtext');
-    appendSafeWritingFeedback(report, writing.report);
+    appendSafeWritingFeedback(report, reportSummary);
     sourcePane.append(report);
   }
 
