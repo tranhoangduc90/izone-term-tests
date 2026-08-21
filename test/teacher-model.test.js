@@ -47,7 +47,8 @@ test('Band trung bình có fallback và trạng thái dùng nhãn tiếng Việt
 test('dashboard đổi phiên bản cả CSS, app và model để không dùng cache cũ', async () => {
   const html = await readFile(new URL('../teacher/index.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
-  assert.match(html, /styles\.css\?rev=20260821-attempt-review-v1/);
+  const styles = await readFile(new URL('../teacher/styles.css', import.meta.url), 'utf8');
+  assert.match(html, /styles\.css\?rev=20260821-writing-summary-v1/);
   assert.match(html, /shared\/attempt-review\.js\?rev=20260821-attempt-review-v1/);
   assert.match(html, /app\.js\?rev=20260821-writing-html-v3/);
   assert.match(app, /model\.js\?rev=20260820-writing-monitor-v1/);
@@ -66,6 +67,10 @@ test('dashboard đổi phiên bản cả CSS, app và model để không dùng c
   assert.match(app, /lastIndexOf\('\-\-\-', markerIndex\)/);
   assert.match(app, /appendSafeWritingFeedback\(report, reportSummary\)/);
   assert.doesNotMatch(app, /insertAdjacentHTML|\.innerHTML\s*=/);
+  assert.match(styles, /writing-feedback-source > \.writing-feedback-text\.writing-feedback-richtext/);
+  assert.match(styles, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /grid-column: 1 \/ -1/);
+  assert.match(styles, /white-space: normal/);
   assert.match(html, /img-src[^;]*https:\/\/ducizone\.ddns\.net/);
 });
 
