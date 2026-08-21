@@ -30,7 +30,7 @@
 .teacher-summary-card span { display: block; min-height: 30px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .teacher-summary-card strong { display: block; margin-top: 5px; color: var(--navy); font-size: 23px; }
 .teacher-table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
-.teacher-table { width: 100%; min-width: 1040px; border-collapse: collapse; }
+.teacher-table { width: 100%; min-width: 900px; border-collapse: collapse; }
 .teacher-table th, .teacher-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; font-size: 13px; }
 .teacher-table th { color: var(--muted); background: var(--surface-soft); font-size: 12px; }
 .teacher-table tbody tr:hover td { background: #f8fafc; }

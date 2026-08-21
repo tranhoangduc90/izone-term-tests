@@ -7,7 +7,6 @@
 
 import {
   formatBand,
-  getAverageBand,
   statusLabel,
   summarizeStudents,
   writingStatusLabel,
@@ -207,7 +206,6 @@ function renderOverviewRows() {
     nameCell.append(createNode('span', 'teacher-student-name', student.name));
     const listeningCell = createNode('td', 'teacher-band', result ? formatBand(result.listening?.band) : '—');
     const readingCell = createNode('td', 'teacher-band', result ? formatBand(result.reading?.band) : '—');
-    const overallCell = createNode('td', 'teacher-band', result ? formatBand(getAverageBand(result), 2) : '—');
     const writing = student.writing || { status: 'not_submitted' };
     const writingCell = document.createElement('td');
     const writingMain = writing.status === 'ready'
@@ -230,7 +228,7 @@ function renderOverviewRows() {
     openButton.type = 'button';
     openButton.dataset.openStudent = student.ref;
     actionCell.append(openButton);
-    row.append(nameCell, listeningCell, readingCell, overallCell, writingCell, statusCell, actionCell);
+    row.append(nameCell, listeningCell, readingCell, writingCell, statusCell, actionCell);
     return row;
   }));
 }

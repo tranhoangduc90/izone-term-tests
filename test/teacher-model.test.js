@@ -48,9 +48,9 @@ test('dashboard đổi phiên bản cả CSS, app và model để không dùng c
   const html = await readFile(new URL('../teacher/index.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../teacher/styles.css', import.meta.url), 'utf8');
-  assert.match(html, /styles\.css\?rev=20260821-writing-essay-v1/);
+  assert.match(html, /styles\.css\?rev=20260821-remove-average-column-v1/);
   assert.match(html, /shared\/attempt-review\.js\?rev=20260821-attempt-review-v1/);
-  assert.match(html, /app\.js\?rev=20260821-writing-essay-v1/);
+  assert.match(html, /app\.js\?rev=20260821-remove-average-column-v1/);
   assert.match(app, /model\.js\?rev=20260820-writing-monitor-v1/);
   assert.match(app, /window\.setInterval/);
   assert.match(app, /loadResults\(\{ quiet: true \}\)/);
@@ -77,6 +77,10 @@ test('dashboard đổi phiên bản cả CSS, app và model để không dùng c
   assert.match(styles, /\.writing-feedback-essay/);
   assert.match(styles, /white-space: pre-wrap/);
   assert.match(html, /img-src[^;]*https:\/\/ducizone\.ddns\.net/);
+  assert.doesNotMatch(html, /<th>Band trung bình<\/th>/);
+  assert.doesNotMatch(app, /const overallCell =/);
+  assert.doesNotMatch(app, /row\.append\([^\n]*overallCell/);
+  assert.match(styles, /\.teacher-table \{ width: 100%; min-width: 900px;/);
 });
 
 test('dashboard giảng viên chỉ tải bài thi đầy đủ khi mở đúng học viên', async () => {
