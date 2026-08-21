@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260821-demo-roster-v1/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-student-session-isolation-v1/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -42,6 +42,11 @@ test('phòng chờ tải audio mã hóa, nghe bản thử rồi mới xin khóa 
   assert.match(source, /legacyUiState\.audioTime/);
   assert.match(source, /const sameStudent = selectedRef === state\.studentRef/);
   assert.match(source, /examSessionToken: sameStudent \? state\.examSessionToken : ''/);
+  assert.match(source, /clientSubmissionId: sameStudent \? state\.clientSubmissionId : ''/);
+  assert.match(source, /clientSubmissionStudentRef: sameStudent \? state\.clientSubmissionStudentRef : ''/);
+  assert.match(source, /if \(!sameStudent\) clearAttemptUiState\(\)/);
+  assert.match(source, /drafts: sameStudent/);
+  assert.match(source, /frozenAnswers: sameStudent/);
 });
 
 test('liên kết xem kết quả demo chỉ hoạt động trong lớp giả lập và vẫn xác thực UUID', async () => {
@@ -155,6 +160,10 @@ test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Read
   assert.doesNotMatch(source, /addSummaryCard\('Tổng điểm'/);
   assert.match(source, /const showConfirmedIdentity = document\.body\.classList\.contains\('cbt-mode'\)/);
   assert.match(source, /if \(showConfirmedIdentity\) elements\.identityView\.hidden = false/);
+  assert.match(source, /clientSubmissionStudentRef/);
+  assert.match(source, /if \(previousStudentRef && previousStudentRef !== state\.studentRef\)/);
+  assert.match(source, /state\.clientSubmissionStudentRef !== state\.studentRef/);
+  assert.match(source, /state\.clientSubmissionId = crypto\.randomUUID\(\)/);
 });
 
 test('Writing xếp dọc trên điện thoại nhưng vẫn giữ thanh chia ở desktop', async () => {

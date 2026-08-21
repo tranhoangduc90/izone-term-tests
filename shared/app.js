@@ -24,6 +24,7 @@
     studentRef: '',
     studentName: '',
     clientSubmissionId: '',
+    clientSubmissionStudentRef: '',
     examSessionToken: '',
     attemptToken: '',
     listeningDeadlineAt: '',
@@ -76,6 +77,7 @@
       studentRef: state.studentRef,
       studentName: state.studentName,
       clientSubmissionId: state.clientSubmissionId,
+      clientSubmissionStudentRef: state.clientSubmissionStudentRef,
       examSessionToken: state.examSessionToken,
       attemptToken: state.attemptToken,
       listeningDeadlineAt: state.listeningDeadlineAt,
@@ -1555,9 +1557,29 @@
   }
 
   elements.studentSelect.addEventListener('change', () => {
+    const previousStudentRef = state.studentRef;
     const student = state.roster.find(item => item.ref === elements.studentSelect.value);
     state.studentRef = student?.ref || '';
     state.studentName = student?.name || '';
+    if (previousStudentRef && previousStudentRef !== state.studentRef) {
+      // Đổi học viên phải tạo một lượt độc lập; không mang mã gửi bài hoặc bài nháp của người trước sang.
+      state.clientSubmissionId = '';
+      state.clientSubmissionStudentRef = '';
+      state.examSessionToken = '';
+      state.attemptToken = '';
+      state.listeningDeadlineAt = '';
+      state.readingDeadlineAt = '';
+      state.writingDeadlineAt = '';
+      state.serverTimeOffsetMs = 0;
+      state.completed = false;
+      state.writingStarted = false;
+      state.writingSubmitted = false;
+      state.writingDirty = false;
+      state.drafts = { listening: {}, reading: {}, writing: { task1: '', task2: '' } };
+      state.frozenAnswers = { listening: null, reading: null };
+      state.result = null;
+      state.attemptReview = null;
+    }
     saveSession();
   });
 
@@ -1577,7 +1599,10 @@
     }
     const answered = Object.values(answers).filter(Boolean).length;
     if (!automatic && !confirmIncomplete(answered, 'Listening')) return;
-    state.clientSubmissionId ||= crypto.randomUUID();
+    if (!state.clientSubmissionId || state.clientSubmissionStudentRef !== state.studentRef) {
+      state.clientSubmissionId = crypto.randomUUID();
+      state.clientSubmissionStudentRef = state.studentRef;
+    }
     state.drafts.listening = answers;
     saveSession();
     elements.listeningView.dataset.listeningSubmitting = 'true';

@@ -142,6 +142,16 @@
     }
   }
 
+  function clearAttemptUiState() {
+    for (const storage of [sessionStorage, localStorage]) {
+      try {
+        storage.removeItem(uiStorageKey);
+      } catch {
+        // Nếu trình duyệt chặn bộ nhớ, trạng thái phiên trên máy chủ vẫn là nguồn chính.
+      }
+    }
+  }
+
   function showNotice(message, error = false) {
     elements.bootstrapNotice.hidden = false;
     elements.bootstrapNotice.className = `notice${error ? ' error' : ''}`;
@@ -332,7 +342,7 @@
     previewAudio.remove();
     revokePreview();
     await loadScript('../shared/attempt-review.js?rev=20260821-attempt-review-v1');
-    await loadScript('../shared/app.js?rev=20260821-writing-html-v1');
+    await loadScript('../shared/app.js?rev=20260821-student-session-isolation-v1');
     await loadScript('enhance.js?rev=20260821-attempt-review-v1');
     await loadScript('interaction-tools.js?rev=20260821-attempt-review-v1');
   }
@@ -437,10 +447,13 @@
   elements.bootstrapStudent.addEventListener('change', () => {
     const selectedRef = elements.bootstrapStudent.value;
     const sameStudent = selectedRef === state.studentRef;
+    if (!sameStudent) clearAttemptUiState();
     legacyListeningResume = Boolean(sameStudent && selectedRef && !state.attemptToken && legacyUiState.audioStarted);
     saveState({
       studentRef: selectedRef,
       studentName: roster.find(item => item.ref === selectedRef)?.name || '',
+      clientSubmissionId: sameStudent ? state.clientSubmissionId : '',
+      clientSubmissionStudentRef: sameStudent ? state.clientSubmissionStudentRef : '',
       examSessionToken: sameStudent ? state.examSessionToken : '',
       attemptToken: sameStudent ? state.attemptToken : '',
       listeningStartedAt: sameStudent ? state.listeningStartedAt : '',
@@ -448,7 +461,19 @@
       readingStartedAt: sameStudent ? state.readingStartedAt : '',
       readingDeadlineAt: sameStudent ? state.readingDeadlineAt : '',
       writingStartedAt: sameStudent ? state.writingStartedAt : '',
-      writingDeadlineAt: sameStudent ? state.writingDeadlineAt : ''
+      writingDeadlineAt: sameStudent ? state.writingDeadlineAt : '',
+      completed: sameStudent ? Boolean(state.completed) : false,
+      writingStarted: sameStudent ? Boolean(state.writingStarted) : false,
+      writingSubmitted: sameStudent ? Boolean(state.writingSubmitted) : false,
+      writingDirty: sameStudent ? Boolean(state.writingDirty) : false,
+      drafts: sameStudent
+        ? state.drafts
+        : { listening: {}, reading: {}, writing: { task1: '', task2: '' } },
+      frozenAnswers: sameStudent
+        ? state.frozenAnswers
+        : { listening: null, reading: null },
+      result: sameStudent ? state.result : null,
+      attemptReview: sameStudent ? state.attemptReview : null
     });
     if (selectedRef) prepareSelectedStudent();
   });
