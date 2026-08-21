@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260821-attempt-review-v1/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-writing-html-v1/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -168,6 +168,10 @@ test('kết quả Writing chỉ mở khi đủ hai Task và mở phân tích chi
   assert.match(source, /\(\?:docs\|drive\)\\\.google/);
   assert.match(source, /noopener noreferrer/);
   assert.doesNotMatch(source, /feedback\.innerHTML/);
+  assert.match(source, /function appendSanitizedWritingHtml/);
+  assert.match(source, /new DOMParser\(\)\.parseFromString/);
+  assert.match(source, /blockedTags\.has\(sourceTag\)/);
+  assert.doesNotMatch(source, /insertAdjacentHTML/);
   assert.doesNotMatch(source, /Phân tích câu/);
   assert.doesNotMatch(source, /Sao chép \$\{task\.label\}/);
   assert.doesNotMatch(source, /Bài làm của học viên/);

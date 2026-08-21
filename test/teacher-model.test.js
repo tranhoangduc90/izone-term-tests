@@ -49,7 +49,7 @@ test('dashboard đổi phiên bản cả CSS, app và model để không dùng c
   const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
   assert.match(html, /styles\.css\?rev=20260821-attempt-review-v1/);
   assert.match(html, /shared\/attempt-review\.js\?rev=20260821-attempt-review-v1/);
-  assert.match(html, /app\.js\?rev=20260821-attempt-review-v1/);
+  assert.match(html, /app\.js\?rev=20260821-writing-html-v1/);
   assert.match(app, /model\.js\?rev=20260820-writing-monitor-v1/);
   assert.match(app, /window\.setInterval/);
   assert.match(app, /loadResults\(\{ quiet: true \}\)/);
@@ -58,6 +58,10 @@ test('dashboard đổi phiên bản cả CSS, app và model để không dùng c
   assert.match(app, /data-writing-student/);
   assert.match(app, /openTeacherWritingFeedback/);
   assert.doesNotMatch(app, /\.innerHTML\s*=/);
+  assert.match(app, /function appendSanitizedWritingHtml/);
+  assert.match(app, /new DOMParser\(\)\.parseFromString/);
+  assert.match(app, /blockedTags\.has\(sourceTag\)/);
+  assert.doesNotMatch(app, /insertAdjacentHTML|\.innerHTML\s*=/);
   assert.match(html, /img-src[^;]*https:\/\/ducizone\.ddns\.net/);
 });
 

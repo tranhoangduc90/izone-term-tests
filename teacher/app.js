@@ -274,6 +274,49 @@ function cleanWritingFeedback(value) {
     .trim();
 }
 
+function looksLikeWritingHtml(value) {
+  return /<\/?[a-z][a-z0-9-]*(?:\s[^>]*)?>/i.test(String(value || ''));
+}
+
+function appendSanitizedWritingHtml(target, value) {
+  const allowedTags = new Set([
+    'p', 'div', 'span', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'br',
+    'blockquote', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
+  ]);
+  const blockedTags = new Set([
+    'script', 'style', 'template', 'iframe', 'object', 'embed', 'svg', 'math',
+    'form', 'input', 'button', 'textarea', 'select', 'option', 'link', 'meta'
+  ]);
+  const parsed = new DOMParser().parseFromString(String(value || ''), 'text/html');
+
+  const cloneSafeNode = node => {
+    if (node.nodeType === 3) return document.createTextNode(node.textContent || '');
+    if (node.nodeType !== 1) return null;
+    const sourceTag = String(node.tagName || '').toLowerCase();
+    if (blockedTags.has(sourceTag)) return null;
+    const outputTag = /^h[1-6]$/.test(sourceTag)
+      ? 'h5'
+      : sourceTag === 'b'
+        ? 'strong'
+        : sourceTag === 'i'
+          ? 'em'
+          : allowedTags.has(sourceTag)
+            ? sourceTag
+            : null;
+    const output = outputTag ? document.createElement(outputTag) : document.createDocumentFragment();
+    for (const child of Array.from(node.childNodes || [])) {
+      const safeChild = cloneSafeNode(child);
+      if (safeChild) output.append(safeChild);
+    }
+    return output;
+  };
+
+  for (const child of Array.from(parsed.body.childNodes || [])) {
+    const safeChild = cloneSafeNode(child);
+    if (safeChild) target.append(safeChild);
+  }
+}
+
 function appendSafeWritingFeedback(target, value) {
   const appendInline = (parent, source) => {
     const text = String(source || '');
@@ -288,7 +331,12 @@ function appendSafeWritingFeedback(target, value) {
     }
     if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
   };
-  const lines = cleanWritingFeedback(value || 'Chưa có nhận xét.').split('\n');
+  const cleaned = cleanWritingFeedback(value || 'Chưa có nhận xét.');
+  if (looksLikeWritingHtml(cleaned)) {
+    appendSanitizedWritingHtml(target, cleaned);
+    return;
+  }
+  const lines = cleaned.split('\n');
   let index = 0;
   while (index < lines.length) {
     const line = lines[index].trim();
