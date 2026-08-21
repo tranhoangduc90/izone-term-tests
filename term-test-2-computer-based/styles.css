@@ -1514,6 +1514,143 @@ button.writing-score-card:focus-visible {
   backdrop-filter: blur(8px);
 }
 
+.cbt-review-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 28px;
+  margin: -2px 0 6px;
+  color: var(--cbt-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.cbt-review-open,
+.cbt-review-close,
+.cbt-review-filter,
+.cbt-review-question {
+  font: inherit;
+}
+
+.cbt-review-open {
+  min-height: 26px;
+  padding: 4px 10px;
+  color: #fff;
+  background: var(--cbt-navy);
+  border: 1px solid var(--cbt-navy);
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.cbt-review-open:hover,
+.cbt-review-open[aria-expanded="true"] {
+  background: var(--cbt-blue);
+  border-color: var(--cbt-blue);
+}
+
+.cbt-review-panel {
+  position: absolute;
+  right: 12px;
+  bottom: calc(100% - 2px);
+  left: 12px;
+  z-index: 40;
+  max-height: min(360px, 58vh);
+  padding: 14px;
+  overflow: auto;
+  color: var(--cbt-ink);
+  background: #fff;
+  border: 1px solid #b9c7da;
+  border-radius: 14px;
+  box-shadow: 0 18px 46px rgba(16, 42, 76, .24);
+}
+
+.cbt-review-panel[hidden] {
+  display: none !important;
+}
+
+.cbt-review-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.cbt-review-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: #526174;
+  background: #eef2f7;
+  border: 0;
+  border-radius: 50%;
+  font-size: 18px;
+}
+
+.cbt-review-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.cbt-review-filter {
+  min-height: 30px;
+  padding: 5px 11px;
+  color: #40516a;
+  background: #f4f6f9;
+  border: 1px solid #cad4e1;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cbt-review-filter.is-active {
+  color: #fff;
+  background: var(--cbt-blue);
+  border-color: var(--cbt-blue);
+}
+
+.cbt-review-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(34px, 1fr));
+  gap: 7px;
+}
+
+.cbt-review-question {
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  color: #526174;
+  background: #fff;
+  border: 1px solid #cbd3df;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.cbt-review-question.is-answered {
+  color: #0d6748;
+  background: #dff4e9;
+  border-color: #80c6aa;
+}
+
+.cbt-review-question.is-flagged {
+  color: #855400;
+  box-shadow: inset 0 -4px var(--cbt-yellow);
+}
+
+.cbt-review-empty {
+  margin: 12px 0 2px;
+  color: var(--cbt-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .cbt-question-nav {
   display: grid;
   grid-template-columns: repeat(20, minmax(28px, 1fr));
@@ -1555,6 +1692,231 @@ button.writing-score-card:focus-visible {
   color: var(--cbt-muted);
   font-size: 10px;
   text-align: center;
+}
+
+.cbt-annotation-toolbar {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  gap: 1px;
+  padding: 4px;
+  color: #fff;
+  background: #172a46;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(12, 27, 48, .28);
+}
+
+.cbt-annotation-toolbar[hidden] {
+  display: none !important;
+}
+
+.cbt-annotation-action {
+  min-height: 28px;
+  padding: 5px 10px;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cbt-annotation-action:hover,
+.cbt-annotation-action:focus-visible {
+  background: rgba(255, 255, 255, .16);
+  outline: none;
+}
+
+mark.cbt-annotation-mark {
+  padding: 1px 0;
+  color: inherit;
+  background: #ffec72;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+}
+
+mark.cbt-annotation-mark.is-note {
+  background: #9fe7e7;
+  box-shadow: inset 0 -2px #1c8b91;
+}
+
+mark.cbt-annotation-mark:focus-visible {
+  outline: 2px solid var(--cbt-blue);
+  outline-offset: 2px;
+}
+
+.cbt-notes-launcher {
+  white-space: nowrap;
+}
+
+.cbt-note-panel {
+  position: fixed;
+  top: 72px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 85;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(360px, calc(100vw - 28px));
+  color: var(--cbt-ink);
+  background: #f8fbff;
+  border: 1px solid #9eb5d0;
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(13, 37, 68, .28);
+}
+
+.cbt-note-panel[hidden] {
+  display: none !important;
+}
+
+.cbt-note-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 10px 14px;
+  color: #fff;
+  background: var(--cbt-navy);
+  border-radius: 13px 13px 0 0;
+}
+
+.cbt-note-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: #fff;
+  background: rgba(255, 255, 255, .13);
+  border: 1px solid rgba(255, 255, 255, .38);
+  border-radius: 50%;
+  font: inherit;
+  font-size: 18px;
+}
+
+.cbt-note-content {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px;
+  overflow: auto;
+}
+
+.cbt-note-list {
+  display: grid;
+  gap: 9px;
+}
+
+.cbt-note-list-item {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 11px;
+  color: var(--cbt-ink);
+  background: #fff;
+  border: 1px solid #c8d6e5;
+  border-radius: 10px;
+  font: inherit;
+  text-align: left;
+}
+
+.cbt-note-list-item strong,
+.cbt-note-list-item span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cbt-note-list-item strong {
+  color: #154d85;
+  font-size: 12px;
+}
+
+.cbt-note-list-item span {
+  color: var(--cbt-muted);
+  font-size: 11px;
+}
+
+.cbt-note-empty {
+  margin: 24px 0;
+  color: var(--cbt-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.cbt-note-back,
+.cbt-note-delete {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cbt-note-back {
+  color: #174f86;
+  background: #eaf3fc;
+  border: 1px solid #b8d1eb;
+}
+
+.cbt-note-content blockquote {
+  margin: 0;
+  padding: 10px 12px;
+  color: #28506f;
+  background: #e3f7f7;
+  border-left: 4px solid #1c8b91;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cbt-note-question-ref {
+  margin-right: 7px;
+  color: #0d3158;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.cbt-note-quote-text {
+  font-style: italic;
+}
+
+.cbt-note-editor {
+  width: 100%;
+  min-height: 150px;
+  padding: 11px;
+  resize: vertical;
+  color: var(--cbt-ink);
+  background: #fff;
+  border: 1px solid #aebed0;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cbt-note-content footer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--cbt-muted);
+  font-size: 10px;
+}
+
+.cbt-note-delete {
+  color: #a12820;
+  background: #fff1ef;
+  border: 1px solid #e4aaa4;
 }
 
 .cbt-form-actions {
@@ -1936,7 +2298,7 @@ button.writing-score-card:focus-visible {
 
 .writing-exam-header {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto auto auto;
+  grid-template-columns: minmax(240px, 1fr) auto auto auto auto;
   gap: 16px;
   align-items: center;
   padding: 11px 14px;
@@ -2264,6 +2626,19 @@ button.writing-score-card:focus-visible {
     grid-row: 1;
   }
 
+  .writing-task-tabs {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .writing-exam-header > .cbt-notes-launcher {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 32px;
+    padding: 6px 9px;
+    font-size: 10px;
+  }
+
   .writing-submit {
     grid-column: 3;
     grid-row: 1;
@@ -2532,6 +2907,41 @@ button.writing-score-card:focus-visible {
 
   .cbt-toolbar-controls {
     align-items: flex-start;
+  }
+
+  .cbt-review-bar {
+    justify-content: space-between;
+  }
+
+  .cbt-review-panel {
+    right: 7px;
+    left: 7px;
+    max-height: 62vh;
+    padding: 11px;
+  }
+
+  .cbt-review-grid {
+    grid-template-columns: repeat(5, minmax(34px, 1fr));
+  }
+
+  .cbt-review-filter {
+    flex: 1 1 auto;
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+
+  .cbt-note-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 64vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .cbt-note-panel > header {
+    border-radius: 15px 15px 0 0;
   }
 
   .cbt-part-nav {

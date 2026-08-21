@@ -26,6 +26,7 @@ const state = {
   selectedTestSlug: '',
   selectedTab: initialParams.get('student') || 'overview',
   resultsLoading: false,
+  writingDetailCache: new Map(),
   connected: false
 };
 
@@ -248,6 +249,262 @@ function addResultSummaryCard(label, value) {
   return card;
 }
 
+function addWritingResultSummaryButton(student, taskNumber, value, ready) {
+  if (!ready) return addResultSummaryCard(`Writing Task ${taskNumber}`, value);
+  const button = createNode('button', 'summary-card teacher-writing-score-button');
+  button.type = 'button';
+  button.dataset.writingStudent = student.ref;
+  button.dataset.writingTask = String(taskNumber);
+  button.setAttribute('aria-label', `Xem bài chấm chi tiết Writing Task ${taskNumber} của ${student.name}`);
+  button.append(
+    createNode('span', '', `Writing Task ${taskNumber} · nhấn để xem chi tiết`),
+    createNode('strong', '', value)
+  );
+  return button;
+}
+
+function cleanWritingFeedback(value) {
+  return String(value || '')
+    .replace(/\r/g, '')
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1')
+    .replace(/https:\/\/(?:docs|drive)\.google\.com\/\S+/gi, '')
+    .replace(/^\s*\(?\s*Xem phân tích chi tiết[^\n]*\)?\s*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function appendSafeWritingFeedback(target, value) {
+  const appendInline = (parent, source) => {
+    const text = String(source || '');
+    const tokenPattern = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+    let cursor = 0;
+    for (const match of text.matchAll(tokenPattern)) {
+      if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
+      const node = document.createElement(match[1] ? 'strong' : 'em');
+      node.textContent = match[1] || match[2];
+      parent.append(node);
+      cursor = match.index + match[0].length;
+    }
+    if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+  };
+  const lines = cleanWritingFeedback(value || 'Chưa có nhận xét.').split('\n');
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line) {
+      index += 1;
+      continue;
+    }
+    const heading = line.match(/^(#{1,5})\s+(?:\*\*([^*]+)\*\*|(.+))$/);
+    if (heading) {
+      const title = document.createElement('h5');
+      title.textContent = String(heading[2] || heading[3] || '').trim();
+      target.append(title);
+      index += 1;
+      continue;
+    }
+    const listItem = line.match(/^(?:([-*])|(\d+)\.)\s+(.+)$/);
+    if (listItem) {
+      const ordered = Boolean(listItem[2]);
+      const list = document.createElement(ordered ? 'ol' : 'ul');
+      while (index < lines.length) {
+        const candidate = lines[index].trim().match(/^(?:([-*])|(\d+)\.)\s+(.+)$/);
+        if (!candidate || Boolean(candidate[2]) !== ordered) break;
+        const item = document.createElement('li');
+        appendInline(item, candidate[3]);
+        list.append(item);
+        index += 1;
+      }
+      target.append(list);
+      continue;
+    }
+    const paragraph = document.createElement('p');
+    appendInline(paragraph, line);
+    target.append(paragraph);
+    index += 1;
+  }
+}
+
+function writingCriterionSections(value) {
+  const text = cleanWritingFeedback(value);
+  if (!text) return [];
+  const sections = [];
+  let current = null;
+  for (const rawLine of text.split('\n')) {
+    const heading = rawLine.trim().match(/^#{2,5}\s+(?:\*\*)?(.+?)(?:\*\*)?\s*$/);
+    const title = String(heading?.[1] || '').replace(/\*\*/g, '').trim();
+    if (heading && /^\d+\.\s+/.test(title)) {
+      if (current) sections.push({ title: current.title, body: current.body.join('\n').trim() });
+      current = { title, body: [] };
+      continue;
+    }
+    if (heading && /KẾT LUẬN/i.test(title)) {
+      if (current) sections.push({ title: current.title, body: current.body.join('\n').trim() });
+      current = null;
+      break;
+    }
+    if (current) current.body.push(rawLine);
+  }
+  if (current) sections.push({ title: current.title, body: current.body.join('\n').trim() });
+  return sections;
+}
+
+function criterionTitle(code, taskNumber) {
+  return {
+    TA: 'Task Achievement',
+    TR: 'Task Response',
+    CC: 'Coherence & Cohesion',
+    LR: 'Lexical Resource',
+    GRA: 'Grammatical Range & Accuracy'
+  }[code] || `Task ${taskNumber} · ${code || 'Tiêu chí'}`;
+}
+
+function safeWritingImageUrl(value) {
+  const raw = String(value || '').trim();
+  if (/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(raw)) return raw;
+  try {
+    const apiOrigin = new URL(appConfig.API_BASE_URL).origin;
+    const url = new URL(raw, `${apiOrigin}/`);
+    return url.protocol === 'https:' && url.origin === apiOrigin ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function appendWritingComponent(parent, component, section, index, criterionCode, taskNumber) {
+  const aspect = createNode('section', 'writing-component');
+  aspect.append(createNode('h5', '', section?.title || `${index + 1}. ${component?.label || component?.code || 'Khía cạnh'}`));
+  const summaryValue = cleanWritingFeedback(component?.summary || section?.body || '');
+  if (summaryValue) {
+    const summary = createNode('div', 'writing-component-summary writing-feedback-richtext');
+    appendSafeWritingFeedback(summary, summaryValue);
+    aspect.append(summary);
+  }
+  const detailValue = cleanWritingFeedback(component?.feedback || '');
+  if (detailValue) {
+    const detailId = `teacherWritingDetail${taskNumber}${criterionCode}${index}${crypto.randomUUID()}`;
+    const toggle = createNode('button', 'writing-component-toggle', 'Xem phân tích chi tiết và cách cải thiện');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', detailId);
+    const detail = createNode('div', 'writing-component-detail writing-feedback-richtext');
+    detail.id = detailId;
+    detail.hidden = true;
+    appendSafeWritingFeedback(detail, detailValue);
+    toggle.addEventListener('click', () => {
+      const willOpen = detail.hidden;
+      detail.hidden = !willOpen;
+      toggle.setAttribute('aria-expanded', String(willOpen));
+      toggle.textContent = willOpen ? 'Thu gọn phân tích chi tiết' : 'Xem phân tích chi tiết và cách cải thiện';
+    });
+    aspect.append(toggle, detail);
+  }
+  parent.append(aspect);
+}
+
+function openTeacherWritingFeedback(studentName, writing) {
+  const taskNumber = Number(writing.taskNumber);
+  const dialog = createNode('dialog', 'writing-feedback-dialog');
+  dialog.setAttribute('aria-labelledby', `teacherWritingTitle${taskNumber}`);
+  const shell = createNode('div', 'writing-feedback-shell');
+  const header = createNode('header', 'writing-feedback-header');
+  const headerCopy = document.createElement('div');
+  headerCopy.append(
+    createNode('span', '', `${studentName} · Kết quả Writing`),
+    createNode('h2', '', `Task ${taskNumber} · Band ${formatBand(Number(writing.taskScore))}`),
+    createNode('p', '', `${Number(writing.wordCount || 0)} từ · Chấm theo 4 tiêu chí IELTS`)
+  );
+  headerCopy.querySelector('h2').id = `teacherWritingTitle${taskNumber}`;
+  const closeButton = createNode('button', 'writing-feedback-close', '×');
+  closeButton.type = 'button';
+  closeButton.setAttribute('aria-label', 'Đóng bài chấm Writing');
+  closeButton.addEventListener('click', () => dialog.close());
+  header.append(headerCopy, closeButton);
+
+  const layout = createNode('div', 'writing-feedback-layout');
+  const sourcePane = createNode('section', 'writing-feedback-source');
+  sourcePane.append(createNode('h3', '', 'Đề bài'), createNode('p', 'writing-feedback-prompt', writing.prompt || 'Chưa lưu nội dung đề bài.'));
+  const imageUrl = safeWritingImageUrl(writing.promptImage);
+  if (imageUrl) {
+    const image = document.createElement('img');
+    image.src = imageUrl;
+    image.alt = `Hình minh họa Writing Task ${taskNumber}`;
+    image.className = 'writing-feedback-image';
+    image.referrerPolicy = 'no-referrer';
+    sourcePane.append(image);
+  }
+  if (cleanWritingFeedback(writing.report)) {
+    sourcePane.append(createNode('h3', '', 'Nhận xét tổng hợp'));
+    const report = createNode('div', 'writing-feedback-text writing-feedback-richtext');
+    appendSafeWritingFeedback(report, writing.report);
+    sourcePane.append(report);
+  }
+
+  const scorePane = createNode('section', 'writing-feedback-scores');
+  scorePane.append(createNode('h3', '', 'Nhận xét theo tiêu chí'));
+  for (const criterion of Array.from(writing.criteria || [])) {
+    const card = createNode('article', 'writing-criterion-card');
+    const criterionHeader = document.createElement('header');
+    criterionHeader.append(
+      createNode('h4', '', criterion.name || criterionTitle(criterion.code, taskNumber)),
+      createNode('strong', '', `Band ${formatBand(Number(criterion.bandScore))}`)
+    );
+    card.append(criterionHeader);
+    const components = Array.from(criterion.components || []);
+    const sections = writingCriterionSections(criterion.feedback);
+    const componentCount = Math.max(components.length, sections.length);
+    if (componentCount) {
+      const list = createNode('div', 'writing-component-list');
+      for (let index = 0; index < componentCount; index += 1) {
+        appendWritingComponent(list, components[index], sections[index], index, criterion.code, taskNumber);
+      }
+      card.append(list);
+    } else {
+      const feedback = createNode('div', 'writing-feedback-text writing-feedback-richtext');
+      appendSafeWritingFeedback(feedback, criterion.feedback || 'Chưa có nhận xét chi tiết.');
+      card.append(feedback);
+    }
+    scorePane.append(card);
+  }
+  layout.append(sourcePane, scorePane);
+  shell.append(header, layout);
+  dialog.append(shell);
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
+async function loadTeacherWritingDetail(student, taskNumber, button) {
+  const selectedClass = getSelectedClass();
+  if (!selectedClass || !student || ![1, 2].includes(taskNumber)) return;
+  const cacheKey = [selectedClass.id, state.selectedTestSlug, student.ref, taskNumber, student.writing?.updatedAt || ''].join('|');
+  let payload = state.writingDetailCache.get(cacheKey);
+  const originalText = button.querySelector('strong')?.textContent || '';
+  try {
+    button.disabled = true;
+    if (button.querySelector('strong')) button.querySelector('strong').textContent = 'Đang tải…';
+    if (!payload) {
+      const query = new URLSearchParams({
+        class: selectedClass.name,
+        test: state.selectedTestSlug,
+        student: student.ref,
+        task: String(taskNumber)
+      });
+      payload = await apiRequest(`/api/term-tests/teacher/writing-detail?${query}`);
+      state.writingDetailCache.set(cacheKey, payload);
+    }
+    openTeacherWritingFeedback(payload.studentName || student.name, payload.writing);
+  } catch (error) {
+    showNotice(`Không thể tải bài chấm Writing: ${error.message}`, 'error');
+  } finally {
+    button.disabled = false;
+    if (button.querySelector('strong')) button.querySelector('strong').textContent = originalText;
+  }
+}
+
 function renderAnalysisList(container, items, emptyText) {
   const rows = items?.length ? items : [{ type: emptyText, correct: 0, total: 0, percentage: 0 }];
   container.replaceChildren(...rows.map(item => createNode(
@@ -335,8 +592,8 @@ function renderStudentResult(student) {
   summaryGrid.append(
     addResultSummaryCard('Listening', `${result.listening.correct}/${result.listening.total} · Band ${result.listening.band}`),
     addResultSummaryCard('Reading', `${result.reading.correct}/${result.reading.total} · Band ${result.reading.band}`),
-    addResultSummaryCard('Writing Task 1', writing.status === 'ready' ? `Band ${formatBand(Number(writing.task1Score))}` : writingTaskStateLabel(writing.task1State)),
-    addResultSummaryCard('Writing Task 2', writing.status === 'ready' ? `Band ${formatBand(Number(writing.task2Score))}` : writingTaskStateLabel(writing.task2State)),
+    addWritingResultSummaryButton(student, 1, writing.status === 'ready' ? `Band ${formatBand(Number(writing.task1Score))}` : writingTaskStateLabel(writing.task1State), writing.status === 'ready'),
+    addWritingResultSummaryButton(student, 2, writing.status === 'ready' ? `Band ${formatBand(Number(writing.task2Score))}` : writingTaskStateLabel(writing.task2State), writing.status === 'ready'),
     addResultSummaryCard('Writing', writing.status === 'ready' ? `Band ${formatBand(Number(writing.writingScore))}` : writingStatusLabel(writing.status))
   );
 
@@ -515,6 +772,13 @@ elements.overviewBody.addEventListener('click', event => {
   if (!button) return;
   state.selectedTab = button.dataset.openStudent;
   renderActiveView();
+});
+
+elements.studentView.addEventListener('click', event => {
+  const button = event.target.closest('[data-writing-student][data-writing-task]');
+  if (!button) return;
+  const student = state.students.find(item => item.ref === button.dataset.writingStudent);
+  loadTeacherWritingDetail(student, Number(button.dataset.writingTask), button);
 });
 
 setupGoogleSignIn();

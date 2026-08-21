@@ -141,6 +141,29 @@
       </form>
   ` : '';
 
+  const listeningSavedMarkup = writingConfig ? `
+      <section class="panel transition-card" id="listeningSavedView" hidden>
+        <div class="transition-icon">✓</div>
+        <p class="eyebrow">Listening đã được ghi nhận</p>
+        <h2>Chuẩn bị phần Reading</h2>
+        <p>Kết quả Listening đang được giữ kín. Điểm và phân tích chỉ mở sau khi bạn hoàn thành Reading và nộp Writing.</p>
+        <div class="form-actions transition-actions">
+          <button class="button button-primary" id="startReading" type="button">Bắt đầu bài Reading</button>
+        </div>
+      </section>
+  ` : `
+      <section class="panel transition-card" id="listeningSavedView" hidden>
+        <div class="transition-icon">✓</div>
+        <p class="eyebrow">Đã chấm bài Listening</p>
+        <h2>Điểm Listening đã được ghi độc lập</h2>
+        <p>Reading chưa cần nộp ngay. Bạn có thể xem đầy đủ điểm và phân tích Listening, hoặc tiếp tục làm Reading.</p>
+        <div class="form-actions transition-actions">
+          <button class="button button-secondary" id="viewListeningResult" type="button">Xem kết quả Listening</button>
+          <button class="button button-primary" id="startReading" type="button">Bắt đầu bài Reading</button>
+        </div>
+      </section>
+  `;
+
   root.innerHTML = `
     <header class="topbar">
       <p class="eyebrow">IZONE · IELTS 6–7</p>
@@ -187,16 +210,7 @@
         </div>
       </form>
 
-      <section class="panel transition-card" id="listeningSavedView" hidden>
-        <div class="transition-icon">✓</div>
-        <p class="eyebrow">Đã chấm bài Listening</p>
-        <h2>Điểm Listening đã được ghi độc lập</h2>
-        <p>Reading chưa cần nộp ngay. Bạn có thể xem đầy đủ điểm và phân tích Listening, hoặc tiếp tục làm Reading.</p>
-        <div class="form-actions transition-actions">
-          <button class="button button-secondary" id="viewListeningResult" type="button">Xem kết quả Listening</button>
-          <button class="button button-primary" id="startReading" type="button">Bắt đầu bài Reading</button>
-        </div>
-      </section>
+      ${listeningSavedMarkup}
 
       <form class="panel test-panel" id="readingView" hidden>
         <div class="section-heading">
@@ -281,7 +295,20 @@
     elements.notice.className = 'notice';
   }
 
+  function resultsUnlocked() {
+    return !writingConfig || Boolean(state.writingSubmitted);
+  }
+
+  function stageBeforeResults() {
+    if (state.completed) return state.writingStarted ? 'writing' : 'writing-prep';
+    if (state.attemptToken) return state.readingDeadlineAt ? 'reading' : 'listening-saved';
+    return 'listening';
+  }
+
   function setStage(stage) {
+    if (writingConfig && !resultsUnlocked() && (stage === 'result-ready' || stage === 'result')) {
+      stage = stageBeforeResults();
+    }
     state.stage = stage;
     if (stage !== 'result') stopWritingGradingPolling();
     for (const view of views) view.hidden = true;
@@ -1389,6 +1416,7 @@
   }
 
   function renderResult(payload) {
+    if (!resultsUnlocked()) return false;
     const result = payload.result;
     const hasReading = Boolean(result.reading);
     state.result = payload;
@@ -1412,6 +1440,7 @@
     if (hasReading) performanceSections.push(renderSkillPerformance('Reading', result.reading));
     elements.skillPerformanceSections.replaceChildren(...performanceSections);
     if (payload.writing?.grading?.ready) stopWritingGradingPolling();
+    return true;
   }
 
   function portalNotice(status, completed) {
@@ -1438,6 +1467,11 @@
   }
 
   async function loadResult(button) {
+    if (!resultsUnlocked()) {
+      setStage(stageBeforeResults());
+      showNotice('Kết quả Listening và Reading được giữ kín cho tới khi bạn nộp Writing.', 'success');
+      return;
+    }
     setBusy(button, true, 'Đang tải kết quả...', button.dataset.normalText || button.textContent);
     try {
       const payload = await apiRequest('/api/term-tests/result', {
@@ -1512,7 +1546,11 @@
       saveSession();
       submitted = true;
       elements.listeningView.dispatchEvent(new CustomEvent('term-test:listening-submitted'));
-      showNotice(portalNotice(response.portalSyncStatus, state.completed), response.portalSyncStatus === 'pending' ? '' : 'success');
+      if (writingConfig) {
+        showNotice('Bài Listening đã được ghi nhận. Kết quả sẽ mở sau khi bạn hoàn thành Reading và nộp Writing.', 'success');
+      } else {
+        showNotice(portalNotice(response.portalSyncStatus, state.completed), response.portalSyncStatus === 'pending' ? '' : 'success');
+      }
       if (state.completed && writingConfig && !state.writingSubmitted) {
         setStage(state.writingStarted ? 'writing' : 'writing-prep');
       } else {
@@ -1618,9 +1656,9 @@
     }
   });
 
-  elements.viewListeningResult.dataset.normalText = 'Xem kết quả Listening';
+  if (elements.viewListeningResult) elements.viewListeningResult.dataset.normalText = 'Xem kết quả Listening';
   elements.viewResult.dataset.normalText = 'Xem kết quả';
-  elements.viewListeningResult.addEventListener('click', () => loadResult(elements.viewListeningResult));
+  elements.viewListeningResult?.addEventListener('click', () => loadResult(elements.viewListeningResult));
   elements.viewResult.addEventListener('click', () => loadResult(elements.viewResult));
 
   if (writingConfig) {
@@ -1840,7 +1878,12 @@
         state.drafts.writing.task1 = 'This is a sample Task 1 response for demonstrating the final copy-ready Writing area.';
         state.drafts.writing.task2 = 'This is a sample Task 2 response. The live page preserves the student essay exactly as typed and provides a separate copy button for each task.';
       }
-      if (demoMode === 'listening-only') state.writingSubmitted = false;
+      if (demoMode === 'listening-only' && writingConfig) {
+        state.writingSubmitted = false;
+        showNotice('Bản demo: Listening đã được ghi nhận; kết quả vẫn được giữ kín cho tới khi nộp Writing.', 'success');
+        setStage('listening-saved');
+        return;
+      }
       renderResult(buildDemoPayload(demoMode));
       showNotice(demoMode === 'complete'
         ? 'Bản demo: học viên đã hoàn thành Listening, Reading và Writing.'

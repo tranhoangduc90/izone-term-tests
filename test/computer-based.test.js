@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260820-cbt-v28/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-cbt-v1/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -59,6 +59,8 @@ test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline m�
   assert.match(source, /attachAnswerFields/);
   assert.match(source, /syncMultiFields/);
   assert.match(source, /createSectionPager/);
+  assert.match(source, /annotateQuestionRanges/);
+  assert.match(source, /child\.dataset\.questionRange = activeRange/);
   assert.match(source, /compactIdentityPanel/);
   assert.match(source, /topbar\.append\(panel\)/);
   assert.match(source, /identityObserver\.observe\(select, \{ childList: true \}\)/);
@@ -78,6 +80,34 @@ test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline m�
   assert.match(source, /writingDeadlineAt/);
   assert.match(source, /requestSubmit\(autoSubmit/);
   assert.match(source, /minutes <= 10 && minutes > 0/);
+  assert.match(source, /Kết quả đang được giữ kín/);
+});
+
+test('công cụ tô sáng, ghi chú và rà soát tách khỏi logic đáp án', async () => {
+  const bootstrap = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  const source = await readFile(new URL('interaction-tools.js', routeUrl), 'utf8');
+  const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
+  assert.match(bootstrap, /interaction-tools\.js/);
+  assert.match(source, /'Highlight'/);
+  assert.match(source, /'Note'/);
+  assert.match(source, /'Delete Highlight'/);
+  assert.match(source, /'Saved automatically'/);
+  assert.match(source, /izone-test-interactions:/);
+  assert.match(source, /submission\.attemptToken/);
+  assert.match(source, /questionRefForSelection/);
+  assert.match(source, /contextQuestionNumbers/);
+  assert.match(source, /fallbackQuestionNumbers/);
+  assert.match(source, /questionRef: pendingSelection\.questionRef/);
+  assert.match(source, /reference\.className = 'cbt-note-question-ref'/);
+  assert.match(source, /\['unanswered', 'Chưa làm'\]/);
+  assert.match(source, /\['flagged', 'Đã đánh dấu'\]/);
+  assert.match(source, /\['all', 'Tất cả'\]/);
+  assert.match(source, /sourceButton\.click\(\)/);
+  assert.doesNotMatch(source, /correctAnswer|answerKey|accepted\s*:/i);
+  assert.match(styles, /\.cbt-annotation-toolbar/);
+  assert.match(styles, /\.cbt-note-panel/);
+  assert.match(styles, /\.cbt-note-question-ref/);
+  assert.match(styles, /\.cbt-review-panel/);
 });
 
 test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Reading', async () => {
@@ -99,6 +129,13 @@ test('app khóa đáp án khi nộp, lưu nháp database và resume thẳng Read
   assert.match(source, /writingDeadlineAt/);
   assert.match(source, /audioVolume: state\.audioVolume/);
   assert.match(source, /await loadResult\(elements\.viewResult\)/);
+  assert.match(source, /function resultsUnlocked\(\)/);
+  assert.match(source, /Boolean\(state\.writingSubmitted\)/);
+  assert.match(source, /function stageBeforeResults\(\)/);
+  assert.match(source, /Kết quả Listening và Reading được giữ kín cho tới khi bạn nộp Writing/);
+  assert.match(source, /Listening đã được ghi nhận/);
+  assert.match(source, /Chuẩn bị phần Reading/);
+  assert.match(source, /elements\.viewListeningResult\?\.addEventListener/);
   assert.doesNotMatch(source, /addSummaryCard\('Tổng điểm'/);
   assert.match(source, /const showConfirmedIdentity = document\.body\.classList\.contains\('cbt-mode'\)/);
   assert.match(source, /if \(showConfirmedIdentity\) elements\.identityView\.hidden = false/);

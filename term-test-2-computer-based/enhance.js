@@ -367,6 +367,45 @@
     return pager;
   }
 
+  // Dữ liệu vào: từng khối nội dung của một Part/Passage và các số câu đã có trong HTML đề.
+  // Việc chính: gắn dải câu cho cả tiêu đề, chú giải và khối bài tập, kể cả khối không chứa ô trả lời.
+  // Kết quả: Note có thể hiện đúng nhãn như 31–32 thay vì chỉ biết dải câu của toàn Part/Passage.
+  // Khi không đọc được dải riêng: dùng dải câu chung của Part/Passage để không tạo nhãn sai hoặc rỗng.
+  function annotateQuestionRanges(sectionNode, host, fallbackRange) {
+    function rangeFromNumbers(numbers) {
+      const sorted = [...new Set(numbers.map(Number).filter(number => number >= 1 && number <= 40))]
+        .sort((left, right) => left - right);
+      if (!sorted.length) return '';
+      if (sorted.length === 1) return String(sorted[0]);
+      return sorted[0] + '–' + sorted[sorted.length - 1];
+    }
+
+    function numbersFrom(value) {
+      return (String(value || '').match(/\d+/g) || []).map(Number);
+    }
+
+    let activeRange = rangeFromNumbers(numbersFrom(fallbackRange));
+    sectionNode.dataset.questionRange = activeRange;
+    [...host.children].forEach(child => {
+      if (child.classList.contains('cbt-section-intro')) {
+        child.dataset.questionRange = activeRange;
+        return;
+      }
+      if (child.classList.contains('cbt-subsection-heading')) {
+        const rangeHeading = child.querySelector('h1, h2, h3, h4, h5, h6');
+        activeRange = rangeFromNumbers(numbersFrom(rangeHeading?.textContent)) || activeRange;
+        child.dataset.questionRange = activeRange;
+        return;
+      }
+      const containedNumbers = [...child.querySelectorAll(
+        '[data-question-numbers], [data-question-number], [data-answer-slot]'
+      )].flatMap(node => numbersFrom(
+        node.dataset.questionNumbers || node.dataset.questionNumber || node.dataset.answerSlot
+      ));
+      child.dataset.questionRange = rangeFromNumbers(containedNumbers) || activeRange;
+    });
+  }
+
   function createSemanticPane(skill, sectionConfig, heading, fields) {
     const pane = document.createElement('section');
     pane.className = 'cbt-semantic-pane';
@@ -413,6 +452,7 @@
       }
       pagerHost.append(createSectionPager(skill, sectionIndex, sectionConfig.sections.length, activateSection));
       sectionNode.dataset.sectionIndex = String(sectionIndex);
+      annotateQuestionRanges(sectionNode, pagerHost, section.range);
       sectionNode.hidden = true;
       viewport.append(sectionNode);
       sectionNodes.push(sectionNode);
@@ -1372,7 +1412,7 @@
   const loadingLabel = document.querySelector('#loadingView strong');
   const listeningSavedCopy = document.querySelector('#listeningSavedView > p:not(.eyebrow)');
   if (loadingLabel) loadingLabel.textContent = 'Đang chuẩn bị đề thi HTML...';
-  if (listeningSavedCopy) listeningSavedCopy.textContent = 'Hệ thống đã ghi bài Listening. Khi sẵn sàng, mở Reading để đọc passage và làm câu hỏi ngay trong giao diện.';
+  if (listeningSavedCopy) listeningSavedCopy.textContent = 'Hệ thống đã ghi bài Listening. Kết quả đang được giữ kín; khi sẵn sàng, mở Reading để tiếp tục làm bài.';
 
   const listeningInstructions = document.getElementById('listeningInstructions');
   const readingInstructions = document.getElementById('readingInstructions');
