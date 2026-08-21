@@ -275,9 +275,17 @@ function cleanWritingFeedback(value) {
 }
 
 function writingReportSummary(value) {
-  return cleanWritingFeedback(value)
-    .split(/\s*---\s*#{1,5}\s+\*{0,2}Nhận xét từng tiêu chí/iu)[0]
-    .trim();
+  const cleaned = cleanWritingFeedback(value);
+  const markerIndex = cleaned.search(/Nhận xét từng tiêu chí/iu);
+  if (markerIndex < 0) return cleaned;
+  const separatorIndex = cleaned.lastIndexOf('---', markerIndex);
+  const headingIndex = cleaned.lastIndexOf('#', markerIndex);
+  const cutIndex = separatorIndex >= 0
+    ? separatorIndex
+    : headingIndex >= 0
+      ? headingIndex
+      : markerIndex;
+  return cleaned.slice(0, cutIndex).trim();
 }
 
 function looksLikeWritingHtml(value) {
