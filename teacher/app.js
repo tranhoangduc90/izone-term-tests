@@ -503,6 +503,15 @@ function openTeacherWritingFeedback(studentName, writing) {
     appendSafeWritingFeedback(report, reportSummary);
     sourcePane.append(report);
   }
+  const essayValue = String(writing.essay || '');
+  sourcePane.append(createNode('h3', '', 'Bài viết của học viên'));
+  const essay = createNode(
+    'div',
+    `writing-feedback-essay${essayValue.trim() ? '' : ' is-empty'}`,
+    essayValue.trim() || 'Chưa có nội dung bài viết.'
+  );
+  essay.lang = 'en';
+  sourcePane.append(essay);
 
   const scorePane = createNode('section', 'writing-feedback-scores');
   scorePane.append(createNode('h3', '', 'Nhận xét theo tiêu chí'));
