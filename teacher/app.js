@@ -27,6 +27,7 @@ const state = {
   selectedTab: initialParams.get('student') || 'overview',
   resultsLoading: false,
   writingDetailCache: new Map(),
+  attemptReviewCache: new Map(),
   connected: false
 };
 
@@ -505,6 +506,33 @@ async function loadTeacherWritingDetail(student, taskNumber, button) {
   }
 }
 
+async function openTeacherAttemptReview(student, button) {
+  const selectedClass = getSelectedClass();
+  if (!selectedClass || !student?.ref) return;
+  const cacheKey = [selectedClass.id, state.selectedTestSlug, student.ref].join('|');
+  const normalText = 'Xem lại toàn bộ bài làm';
+  button.disabled = true;
+  button.textContent = 'Đang tải bài chi tiết...';
+  try {
+    if (!state.attemptReviewCache.has(cacheKey)) {
+      const query = new URLSearchParams({
+        class: selectedClass.name,
+        test: state.selectedTestSlug,
+        student: student.ref
+      });
+      const payload = await apiRequest(`/api/term-tests/teacher/attempt-review?${query}`);
+      state.attemptReviewCache.set(cacheKey, payload.review);
+    }
+    if (!window.TERM_TEST_ATTEMPT_REVIEW?.open) throw new Error('Chưa tải được giao diện xem lại bài làm.');
+    window.TERM_TEST_ATTEMPT_REVIEW.open(state.attemptReviewCache.get(cacheKey));
+  } catch (error) {
+    showNotice(`Không thể tải bài chi tiết của ${student.name}: ${error.message}`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = normalText;
+  }
+}
+
 function renderAnalysisList(container, items, emptyText) {
   const rows = items?.length ? items : [{ type: emptyText, correct: 0, total: 0, percentage: 0 }];
   container.replaceChildren(...rows.map(item => createNode(
@@ -586,7 +614,12 @@ function renderStudentResult(student) {
     createNode('h2', '', student.name),
     createNode('p', '', `${getSelectedClass()?.name || ''} · ${result.testTitle || getSelectedTest()?.title || ''}${student.completedAt ? ` · ${formatCompletedAt(student.completedAt)}` : ''}`)
   );
-  heading.append(headingCopy);
+  const reviewButton = createNode('button', 'button button-secondary teacher-attempt-review-button', 'Xem lại toàn bộ bài làm');
+  reviewButton.type = 'button';
+  reviewButton.dataset.fullAttemptStudent = student.ref;
+  reviewButton.hidden = writing.status === 'not_submitted';
+  reviewButton.addEventListener('click', () => openTeacherAttemptReview(student, reviewButton));
+  heading.append(headingCopy, reviewButton);
 
   const summaryGrid = createNode('div', 'summary-grid');
   summaryGrid.append(

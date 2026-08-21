@@ -47,8 +47,9 @@ test('Band trung bình có fallback và trạng thái dùng nhãn tiếng Việt
 test('dashboard đổi phiên bản cả CSS, app và model để không dùng cache cũ', async () => {
   const html = await readFile(new URL('../teacher/index.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
-  assert.match(html, /styles\.css\?rev=20260821-writing-detail-v1/);
-  assert.match(html, /app\.js\?rev=20260821-writing-detail-v1/);
+  assert.match(html, /styles\.css\?rev=20260821-attempt-review-v1/);
+  assert.match(html, /shared\/attempt-review\.js\?rev=20260821-attempt-review-v1/);
+  assert.match(html, /app\.js\?rev=20260821-attempt-review-v1/);
   assert.match(app, /model\.js\?rev=20260820-writing-monitor-v1/);
   assert.match(app, /window\.setInterval/);
   assert.match(app, /loadResults\(\{ quiet: true \}\)/);
@@ -58,4 +59,13 @@ test('dashboard đổi phiên bản cả CSS, app và model để không dùng c
   assert.match(app, /openTeacherWritingFeedback/);
   assert.doesNotMatch(app, /\.innerHTML\s*=/);
   assert.match(html, /img-src[^;]*https:\/\/ducizone\.ddns\.net/);
+});
+
+test('dashboard giảng viên chỉ tải bài thi đầy đủ khi mở đúng học viên', async () => {
+  const app = await readFile(new URL('../teacher/app.js', import.meta.url), 'utf8');
+  assert.match(app, /attemptReviewCache: new Map\(\)/);
+  assert.match(app, /Xem lại toàn bộ bài làm/);
+  assert.match(app, /teacher\/attempt-review/);
+  assert.match(app, /openTeacherAttemptReview\(student, reviewButton\)/);
+  assert.match(app, /if \(!state\.attemptReviewCache\.has\(cacheKey\)\)/);
 });

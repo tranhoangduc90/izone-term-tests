@@ -331,9 +331,10 @@
     });
     previewAudio.remove();
     revokePreview();
-    await loadScript('../shared/app.js?rev=20260821-cbt-v1');
-    await loadScript('enhance.js?rev=20260821-cbt-v1');
-    await loadScript('interaction-tools.js?rev=20260821-cbt-tools-v1');
+    await loadScript('../shared/attempt-review.js?rev=20260821-attempt-review-v1');
+    await loadScript('../shared/app.js?rev=20260821-attempt-review-v1');
+    await loadScript('enhance.js?rev=20260821-attempt-review-v1');
+    await loadScript('interaction-tools.js?rev=20260821-attempt-review-v1');
   }
 
   async function resumeAfterListening() {

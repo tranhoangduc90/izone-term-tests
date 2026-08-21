@@ -51,6 +51,7 @@
 .teacher-empty h2 { margin: 8px 0; }
 .teacher-empty p { margin: 0; color: var(--muted); }
 .teacher-result-panel { margin: 0; }
+.teacher-attempt-review-button { flex: 0 0 auto; }
 .teacher-writing-score-button { width: 100%; text-align: left; cursor: pointer; font: inherit; }
 .teacher-writing-score-button:hover:not(:disabled), .teacher-writing-score-button:focus-visible { border-color: #7daee8; background: #eef5ff; }
 .teacher-writing-score-button:focus-visible { outline: 3px solid rgb(47 113 232 / 24%); outline-offset: 2px; }

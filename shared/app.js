@@ -39,6 +39,7 @@
     writingLayout: { activeTask: 'task1', splits: {} },
     frozenAnswers: { listening: null, reading: null },
     result: null,
+    attemptReview: null,
     ...restoredSession,
     drafts: {
       listening: { ...(restoredSession.drafts?.listening || {}) },
@@ -251,6 +252,7 @@
         <p class="result-status" id="resultStatus"></p>
         <div class="form-actions result-actions">
           <button class="button button-primary" id="continueReadingFromResult" type="button" hidden>Tiếp tục làm Reading</button>
+          <button class="button button-secondary" id="viewFullAttempt" type="button" hidden>Xem lại toàn bộ bài làm</button>
         </div>
         <div id="writingSubmissionResult" hidden></div>
         <div id="questionDetails"></div>
@@ -266,6 +268,7 @@
     'readingQuestions', 'readingCount', 'readingStudentName', 'submitReading', 'resultReadyView',
     'viewResult', 'resultView', 'resultStudentName', 'resultMeta', 'summaryGrid',
     'skillPerformanceSections', 'questionDetails', 'resultStatus', 'continueReadingFromResult',
+    'viewFullAttempt',
     'writingPrepView', 'startWriting', 'writingView', 'writingTaskTabs', 'writingWorkspace', 'submitWriting',
     'previousWritingTask', 'nextWritingTask', 'writingTaskPosition', 'writingSubmissionResult'
   ].map(id => [id, document.getElementById(id)]));
@@ -1432,6 +1435,12 @@
         : 'Listening và Reading được phân tích riêng. Writing đang được chấm và chưa hiện điểm thành phần.'
       : 'Listening đã được chấm và lưu riêng. Phân tích dưới đây chỉ dùng bài Listening; Reading chưa bị tính là 0 điểm.';
     elements.continueReadingFromResult.hidden = hasReading || Boolean(demoMode);
+    elements.viewFullAttempt.hidden = !(
+      state.attemptToken
+      && payload.completed
+      && payload.writing?.submitted
+      && !demoMode
+    );
     renderWritingSubmission();
     const detailBlocks = [renderDetailBlock('Listening', result.listening.details)];
     if (hasReading) detailBlocks.push(renderDetailBlock('Reading', result.reading.details));
@@ -1658,8 +1667,28 @@
 
   if (elements.viewListeningResult) elements.viewListeningResult.dataset.normalText = 'Xem kết quả Listening';
   elements.viewResult.dataset.normalText = 'Xem kết quả';
+  elements.viewFullAttempt.dataset.normalText = 'Xem lại toàn bộ bài làm';
   elements.viewListeningResult?.addEventListener('click', () => loadResult(elements.viewListeningResult));
   elements.viewResult.addEventListener('click', () => loadResult(elements.viewResult));
+  elements.viewFullAttempt.addEventListener('click', async () => {
+    setBusy(elements.viewFullAttempt, true, 'Đang tải bài chi tiết...', 'Xem lại toàn bộ bài làm');
+    try {
+      if (!state.attemptReview) {
+        const payload = await apiRequest('/api/term-tests/result/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attemptToken: state.attemptToken })
+        });
+        state.attemptReview = payload.review;
+      }
+      if (!window.TERM_TEST_ATTEMPT_REVIEW?.open) throw new Error('Chưa tải được giao diện xem lại bài làm.');
+      window.TERM_TEST_ATTEMPT_REVIEW.open(state.attemptReview);
+    } catch (error) {
+      showNotice(`Không thể tải bài chi tiết: ${error.message}`, 'error');
+    } finally {
+      setBusy(elements.viewFullAttempt, false, 'Đang tải bài chi tiết...', 'Xem lại toàn bộ bài làm');
+    }
+  });
 
   if (writingConfig) {
     elements.startWriting.addEventListener('click', async () => {

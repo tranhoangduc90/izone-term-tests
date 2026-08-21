@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260821-cbt-v1/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-attempt-review-v1/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -177,4 +177,24 @@ test('kết quả Writing chỉ mở khi đủ hai Task và mở phân tích chi
   assert.match(styles, /\.writing-component-toggle/);
   assert.match(styles, /\.writing-component-detail\[hidden\]/);
   assert.doesNotMatch(styles, /\.writing-copy-button/);
+});
+
+test('toàn bộ bài làm chỉ được tải sau khi bấm nút xem lại', async () => {
+  const appSource = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
+  const bootstrap = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  const reviewSource = await readFile(new URL('../shared/attempt-review.js', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../shared/styles.css', import.meta.url), 'utf8');
+  assert.match(appSource, /id="viewFullAttempt"/);
+  assert.match(appSource, /Xem lại toàn bộ bài làm/);
+  assert.match(appSource, /viewFullAttempt\.addEventListener\('click'/);
+  assert.match(appSource, /\/api\/term-tests\/result\/review/);
+  assert.match(appSource, /if \(!state\.attemptReview\)/);
+  assert.match(bootstrap, /shared\/attempt-review\.js\?rev=20260821-attempt-review-v1/);
+  assert.match(reviewSource, /data-answer-slot/);
+  assert.match(reviewSource, /attempt-review-choice-selected/);
+  assert.match(reviewSource, /Bài thi đã nộp · Chế độ chỉ đọc/);
+  assert.doesNotMatch(reviewSource, /correctAnswer|answerKey|accepted\s*:/i);
+  assert.match(styles, /\.attempt-review-dialog/);
+  assert.match(styles, /\.attempt-review-reading-split/);
+  assert.match(styles, /\.attempt-review-writing-split/);
 });
