@@ -13,7 +13,7 @@ test('GitHub Pages chỉ nạp phòng chờ an toàn, không phát hành đề h
   assert.doesNotMatch(html, /content-config\.js/);
   assert.doesNotMatch(html, /shared\/app\.js/);
   assert.doesNotMatch(html, /enhance\.js/);
-  assert.match(html, /bootstrap\.js\?rev=20260821-student-session-isolation-v1/);
+  assert.match(html, /bootstrap\.js\?rev=20260821-demo-reset-retry-v1/);
   await assert.rejects(access(new URL('content-config.js', routeUrl)));
   await assert.rejects(access(new URL('assets/listening/term-test-2-audio.mp3', routeUrl)));
   assert.doesNotMatch(bootstrap, /Bankside Recruitment|What is exploration|physical activities between 2001 and 2009/);
@@ -66,6 +66,29 @@ test('đường dẫn chung của lớp demo luôn hiện danh sách chọn họ
   assert.match(source, /roster\.some\(student => student\.ref === state\.studentRef\)/);
 });
 
+test('phòng chờ báo lỗi kết nối tại đúng bước và cho tải lại roster', async () => {
+  const source = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  assert.match(source, /12_000/);
+  assert.match(source, /Không kết nối được máy chủ\. Hãy kiểm tra mạng hoặc thử lại\./);
+  assert.match(source, /Thử tải danh sách lại/);
+  assert.match(source, /if \(!roster\.length\) initialize\(\)/);
+  assert.match(source, /bootstrapDownloadStep\.dataset\.state = 'error'/);
+});
+
+test('reset dữ liệu chỉ xuất hiện cho lớp demo và xóa cả trạng thái cục bộ', async () => {
+  const bootstrap = await readFile(new URL('bootstrap.js', routeUrl), 'utf8');
+  const appSource = await readFile(new URL('../shared/app.js', import.meta.url), 'utf8');
+  for (const source of [bootstrap, appSource]) {
+    assert.match(source, /\/api\/term-tests\/demo\/reset/);
+    assert.match(source, /confirmation: 'RESET_DEMO_STUDENT'/);
+    assert.match(source, /classCode !== 'CODEXDEMO806'/);
+    assert.match(source, /izone-test-interactions:/);
+    assert.match(source, /window\.confirm/);
+  }
+  assert.match(appSource, /classCode === 'CODEXDEMO806'/);
+  assert.match(appSource, /id="resetDemoData"/);
+});
+
 test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline máy chủ cho ba kỹ năng', async () => {
   const source = await readFile(new URL('enhance.js', routeUrl), 'utf8');
   assert.equal(/correctAnswer|answerKey|accepted\s*:/i.test(source), false);
@@ -99,7 +122,7 @@ test('giao diện tăng cường giữ hành vi câu hỏi và dùng deadline m�
 test('tiêu đề Listening và Reading không chiếm chỗ cho các dòng hướng dẫn nhỏ', async () => {
   const html = await readFile(new URL('index.html', routeUrl), 'utf8');
   const styles = await readFile(new URL('styles.css', routeUrl), 'utf8');
-  assert.match(html, /styles\.css\?rev=20260821-hide-test-instructions-v1/);
+  assert.match(html, /styles\.css\?rev=20260821-demo-reset-retry-v1/);
   assert.match(styles, /\.cbt-test-heading \.instructions\s*\{\s*display: none;/);
   assert.match(styles, /\.cbt-test-heading h2\s*\{[^}]*font-size: 18px;/s);
 });

@@ -494,7 +494,7 @@ button.writing-score-card:focus-visible {
 
 .cbt-bootstrap-identity {
   display: grid;
-  grid-template-columns: minmax(150px, .45fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(150px, .45fr) minmax(280px, 1fr) auto;
   gap: 16px;
   align-items: end;
   margin: 16px 0;
@@ -527,6 +527,31 @@ button.writing-score-card:focus-visible {
   color: var(--cbt-ink);
   background: #fff;
   font: inherit;
+}
+
+.cbt-demo-reset {
+  align-self: end;
+  min-height: 42px;
+  padding: 0 14px;
+  white-space: nowrap;
+  color: #b42318;
+  background: #fff1f2;
+  border: 1px solid #f3a6ad;
+  box-shadow: none;
+}
+
+.cbt-demo-reset:hover:not(:disabled) {
+  color: #fff;
+  background: #c92a35;
+  border-color: #c92a35;
+}
+
+.cbt-mode .cbt-identity-panel:has(.cbt-demo-reset) {
+  grid-template-columns: minmax(180px, .55fr) minmax(260px, 1fr) auto;
+}
+
+.cbt-mode .topbar .cbt-identity-panel:has(.cbt-demo-reset) {
+  max-width: 900px;
 }
 
 .cbt-mode .progress,
@@ -2737,6 +2762,10 @@ mark.cbt-annotation-mark:focus-visible {
   .cbt-bootstrap-identity {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .cbt-mode .cbt-identity-panel:has(.cbt-demo-reset) {
+    grid-template-columns: 1fr;
   }
 
   .writing-exam-view:not([hidden]) {

@@ -43,6 +43,7 @@
               <option value="">Nhấn để chọn</option>
             </select>
           </label>
+          <button class="button cbt-demo-reset" id="bootstrapDemoReset" type="button" hidden>Reset dữ liệu học viên</button>
         </div>
         <div class="cbt-lobby-steps">
           <section class="cbt-lobby-step" id="bootstrapDownloadStep" data-state="locked">
@@ -81,7 +82,7 @@
     </main>`;
 
   const elements = Object.fromEntries([
-    'bootstrapStudent', 'bootstrapClass', 'bootstrapDownloadStep', 'bootstrapDownloadStatus',
+    'bootstrapStudent', 'bootstrapClass', 'bootstrapDemoReset', 'bootstrapDownloadStep', 'bootstrapDownloadStatus',
     'bootstrapDownloadProgress', 'bootstrapRetry', 'bootstrapPreviewStep', 'bootstrapPreview',
     'bootstrapVolume', 'bootstrapPreviewStatus', 'bootstrapStartStep', 'bootstrapStartStatus',
     'bootstrapStart', 'bootstrapNotice'
@@ -148,6 +149,22 @@
         storage.removeItem(uiStorageKey);
       } catch {
         // Nếu trình duyệt chặn bộ nhớ, trạng thái phiên trên máy chủ vẫn là nguồn chính.
+      }
+    }
+  }
+
+  function clearAllLocalAttemptData() {
+    const interactionPrefix = `izone-test-interactions:${testConfig.slug}:${classCode}:`;
+    for (const storage of [sessionStorage, localStorage]) {
+      try {
+        storage.removeItem(storageKey);
+        storage.removeItem(uiStorageKey);
+        for (let index = storage.length - 1; index >= 0; index -= 1) {
+          const key = storage.key(index);
+          if (key?.startsWith(interactionPrefix)) storage.removeItem(key);
+        }
+      } catch {
+        // Database đã được reset; tải lại trang vẫn cho phép bắt đầu lượt mới.
       }
     }
   }
@@ -255,6 +272,7 @@
       if (error.name === 'AbortError') return;
       elements.bootstrapDownloadStep.dataset.state = 'error';
       elements.bootstrapDownloadStatus.textContent = 'Chưa tải đủ audio. Bài thi vẫn đang khóa.';
+      elements.bootstrapRetry.textContent = 'Thử tải lại audio';
       elements.bootstrapRetry.hidden = false;
       showNotice(error.message, true);
     }
@@ -342,7 +360,7 @@
     previewAudio.remove();
     revokePreview();
     await loadScript('../shared/attempt-review.js?rev=20260821-attempt-review-v1');
-    await loadScript('../shared/app.js?rev=20260821-student-session-isolation-v1');
+    await loadScript('../shared/app.js?rev=20260821-demo-reset-retry-v1');
     await loadScript('enhance.js?rev=20260821-attempt-review-v1');
     await loadScript('interaction-tools.js?rev=20260821-attempt-review-v1');
   }
@@ -443,7 +461,38 @@
       preparing = false;
     }
   });
-  elements.bootstrapRetry.addEventListener('click', prepareSelectedStudent);
+  elements.bootstrapRetry.addEventListener('click', () => {
+    if (!roster.length) initialize();
+    else prepareSelectedStudent();
+  });
+  elements.bootstrapDemoReset.addEventListener('click', async () => {
+    const studentRef = elements.bootstrapStudent.value;
+    const student = roster.find(item => item.ref === studentRef);
+    if (classCode !== 'CODEXDEMO806' || !student) return;
+    if (!window.confirm(`Xóa toàn bộ dữ liệu làm bài của ${student.name} để thử lại từ đầu?`)) return;
+
+    const normalText = elements.bootstrapDemoReset.textContent;
+    elements.bootstrapDemoReset.disabled = true;
+    elements.bootstrapDemoReset.textContent = 'Đang reset...';
+    try {
+      await apiRequest('/api/term-tests/demo/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classCode,
+          testSlug: testConfig.slug,
+          studentRef,
+          confirmation: 'RESET_DEMO_STUDENT'
+        })
+      });
+      clearAllLocalAttemptData();
+      window.location.reload();
+    } catch (error) {
+      showNotice(`Không thể reset dữ liệu: ${error.message}`, true);
+      elements.bootstrapDemoReset.disabled = false;
+      elements.bootstrapDemoReset.textContent = normalText;
+    }
+  });
   elements.bootstrapStudent.addEventListener('change', () => {
     const selectedRef = elements.bootstrapStudent.value;
     const sameStudent = selectedRef === state.studentRef;
@@ -475,6 +524,7 @@
       result: sameStudent ? state.result : null,
       attemptReview: sameStudent ? state.attemptReview : null
     });
+    elements.bootstrapDemoReset.hidden = classCode !== 'CODEXDEMO806' || !selectedRef;
     if (selectedRef) prepareSelectedStudent();
   });
 
@@ -483,8 +533,12 @@
       showNotice('Link chưa có mã lớp hợp lệ.', true);
       return;
     }
+    elements.bootstrapDownloadStep.dataset.state = 'active';
+    elements.bootstrapDownloadStatus.textContent = 'Đang tải danh sách lớp...';
+    elements.bootstrapRetry.hidden = true;
+    elements.bootstrapDemoReset.hidden = true;
     try {
-      const data = await apiRequest(`/api/term-tests/roster?class=${encodeURIComponent(classCode)}&test=${encodeURIComponent(testConfig.slug)}`);
+      const data = await apiRequest(`/api/term-tests/roster?class=${encodeURIComponent(classCode)}&test=${encodeURIComponent(testConfig.slug)}`, {}, 12_000);
       roster = data.students || [];
       elements.bootstrapClass.textContent = `Lớp ${data.class.name}`;
       const options = [new Option('Nhấn để chọn', '')];
@@ -509,6 +563,7 @@
           writingDeadlineAt: ''
         });
         elements.bootstrapStudent.value = demoStudent.ref;
+        elements.bootstrapDemoReset.hidden = false;
         await prepareSelectedStudent();
         return;
       }
@@ -520,12 +575,18 @@
         && roster.some(student => student.ref === state.studentRef);
       if (shouldRestoreSelectedStudent) {
         elements.bootstrapStudent.value = state.studentRef;
+        elements.bootstrapDemoReset.hidden = classCode !== 'CODEXDEMO806';
         await prepareSelectedStudent();
       } else {
         elements.bootstrapDownloadStatus.textContent = 'Hãy chọn họ và tên để bắt đầu tải audio.';
         elements.bootstrapDownloadStep.dataset.state = 'active';
       }
     } catch (error) {
+      roster = [];
+      elements.bootstrapDownloadStep.dataset.state = 'error';
+      elements.bootstrapDownloadStatus.textContent = 'Không kết nối được máy chủ. Hãy kiểm tra mạng hoặc thử lại.';
+      elements.bootstrapRetry.textContent = 'Thử tải danh sách lại';
+      elements.bootstrapRetry.hidden = false;
       showNotice(`Không thể mở phòng chờ: ${error.message}`, true);
     }
   }

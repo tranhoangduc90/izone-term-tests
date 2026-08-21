@@ -102,6 +102,23 @@
     }
   }
 
+  function clearAllLocalAttemptData() {
+    const uiStorageKey = `izone-test-ui:${testConfig.slug}:${classCode}`;
+    const interactionPrefix = `izone-test-interactions:${testConfig.slug}:${classCode}:`;
+    for (const storage of [sessionStorage, localStorage]) {
+      try {
+        storage.removeItem(storageKey);
+        storage.removeItem(uiStorageKey);
+        for (let index = storage.length - 1; index >= 0; index -= 1) {
+          const key = storage.key(index);
+          if (key?.startsWith(interactionPrefix)) storage.removeItem(key);
+        }
+      } catch {
+        // Database đã được reset; tải lại trang vẫn cho phép bắt đầu lượt mới.
+      }
+    }
+  }
+
   const progressMarkup = writingConfig
     ? `<div class="progress-step" data-progress="listening">1. Listening</div>
         <div class="progress-step" data-progress="reading">2. Reading</div>
@@ -196,6 +213,9 @@
             <option value="">Nhấn để chọn</option>
           </select>
         </label>
+        ${classCode === 'CODEXDEMO806'
+          ? '<button class="button cbt-demo-reset" id="resetDemoData" type="button" disabled>Reset dữ liệu học viên</button>'
+          : ''}
       </section>
 
       <form class="panel test-panel" id="listeningView" hidden>
@@ -264,7 +284,7 @@
   `;
 
   const elements = Object.fromEntries([
-    'notice', 'loadingView', 'identityView', 'identityTitle', 'classLabel', 'studentSelect',
+    'notice', 'loadingView', 'identityView', 'identityTitle', 'classLabel', 'studentSelect', 'resetDemoData',
     'listeningView', 'listeningTitle', 'listeningInstructions', 'listeningQuestions', 'listeningCount', 'submitListening',
     'listeningSavedView', 'viewListeningResult', 'startReading', 'readingView', 'readingTitle', 'readingInstructions',
     'readingQuestions', 'readingCount', 'readingStudentName', 'submitReading', 'resultReadyView',
@@ -679,6 +699,7 @@
       state.studentName = '';
       saveSession();
     }
+    if (elements.resetDemoData) elements.resetDemoData.disabled = !elements.studentSelect.value;
   }
 
   function confirmIncomplete(answered, skillLabel) {
@@ -1580,7 +1601,33 @@
       state.result = null;
       state.attemptReview = null;
     }
+    if (elements.resetDemoData) elements.resetDemoData.disabled = !state.studentRef;
     saveSession();
+  });
+
+  elements.resetDemoData?.addEventListener('click', async () => {
+    const student = state.roster.find(item => item.ref === state.studentRef);
+    if (classCode !== 'CODEXDEMO806' || !student) return;
+    if (!window.confirm(`Xóa toàn bộ dữ liệu làm bài của ${student.name} để thử lại từ đầu?`)) return;
+
+    setBusy(elements.resetDemoData, true, 'Đang reset...', 'Reset dữ liệu học viên');
+    try {
+      await apiRequest('/api/term-tests/demo/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classCode,
+          testSlug: testConfig.slug,
+          studentRef: state.studentRef,
+          confirmation: 'RESET_DEMO_STUDENT'
+        })
+      });
+      clearAllLocalAttemptData();
+      window.location.reload();
+    } catch (error) {
+      showNotice(`Không thể reset dữ liệu: ${error.message}`, 'error');
+      setBusy(elements.resetDemoData, false, 'Đang reset...', 'Reset dữ liệu học viên');
+    }
   });
 
   elements.listeningView.addEventListener('submit', async event => {
